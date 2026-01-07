@@ -136,6 +136,20 @@
       cursor: pointer;
       border: none;
     }
+    .credit {
+      position: fixed;
+      bottom: 15px;
+      right: 20px;
+      font-size: 10px;
+      color: #443322;
+      text-decoration: none;
+      opacity: 0;
+      animation: fadeUp 2s ease 4s forwards;
+      z-index: 10;
+    }
+    .credit:hover {
+      color: #886644;
+    }
   </style>
 </head>
 <body>
@@ -145,6 +159,7 @@
     <div class="slider-label">disassembly</div>
   </div>
   <div class="title"><h1>Dyson Swarm</h1></div>
+  <a href="https://sankala.me" target="_blank" class="credit">by sankala.me</a>
   <div class="info">
     <p>
       A <span class="highlight">Dyson swarm</span> is a megastructure of
