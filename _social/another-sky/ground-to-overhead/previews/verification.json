@@ -1,0 +1,21 @@
+{
+  "file": "another-sky-ground-to-overhead-v1-1080p.mp4",
+  "bytes": 11307079,
+  "durationSeconds": 18,
+  "width": 1920,
+  "height": 1080,
+  "fps": 30,
+  "frames": 540,
+  "codec": "H.264",
+  "pixelFormat": "yuv420p",
+  "colorSpace": "BT.709",
+  "audio": "none; intentional silent clip",
+  "completeDecode": "passed",
+  "fastStart": true,
+  "reviewImages": [
+    "opening.jpg",
+    "reveal.jpg",
+    "ending.jpg",
+    "contact-sheet.jpg"
+  ]
+}

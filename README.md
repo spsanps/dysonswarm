@@ -17,6 +17,7 @@ and [Paper Robots](https://www.youtube.com/@paperrobotsfilms) for films.
 | `_archive/another-sky/` | Exact original HTML supplied for the September 2026 launch. |
 | `_design/social-cards/` | Browser-rendered source for the collection’s share card. |
 | `_design/reviews/` | Release notes and verification records. |
+| `_social/another-sky/` | Reveal-clip exports, clean capture, editable titles/camera source, and post drafts. |
 | `CNAME`, `robots.txt`, `sitemap.xml` | Domain and search discovery. |
 
 Folders beginning with `_` are source/reference material excluded from the

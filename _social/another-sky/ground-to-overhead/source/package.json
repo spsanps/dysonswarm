@@ -1,0 +1,12 @@
+{
+  "name": "another-sky-reveal-capture",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "render": "node render-clip.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.57.0"
+  }
+}

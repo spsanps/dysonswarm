@@ -20,3 +20,9 @@ a claim of an independently validated model benchmark.
 Keep this creator presence nonmonetized: no ads, affiliates, sponsorships, paid
 subscriptions, tips, or donation links without a new explicit instruction.
 Do not post or send launch messages to other people without authorization.
+
+San approved making a short ground-to-overhead reveal clip on 2026-09-06. Its
+upload, clean capture, editable source, previews and unsent post draft are in
+`_social/another-sky/ground-to-overhead/`. Start with that folder’s README. Version
+1 is ready for San’s review; do not imply it was posted or that he approved the
+finished cut. Keep production assets excluded from the Pages site under `_social`.

@@ -1,0 +1,24 @@
+[Script Info]
+Title: Another Sky — ground-to-overhead reveal
+ScriptType: v4.00+
+PlayResX: 1920
+PlayResY: 1080
+WrapStyle: 2
+ScaledBorderAndShadow: yes
+YCbCr Matrix: TV.709
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Title,DejaVu Serif,64,&H00DDF1F3,&H00DDF1F3,&H701F352C,&H801F352C,0,0,0,0,100,100,0,0,1,0.9,2,7,76,76,58,1
+Style: Label,DejaVu Sans,24,&H00DDF1F3,&H00DDF1F3,&H701F352C,&H801F352C,0,0,0,0,100,100,2,0,1,0.8,1.5,7,76,76,133,1
+Style: Cue,DejaVu Serif,70,&H00DDF1F3,&H00DDF1F3,&H701F352C,&H801F352C,0,0,0,0,100,100,0,0,1,0.9,2,7,76,76,902,1
+Style: End,DejaVu Serif,54,&H00DDF1F3,&H00DDF1F3,&H501F352C,&H701F352C,0,0,0,0,100,100,0,0,1,1,2,7,76,76,866,1
+Style: Link,DejaVu Sans,34,&H00DDF1F3,&H00DDF1F3,&H501F352C,&H701F352C,0,0,0,0,100,100,0.3,0,1,1,2,7,76,76,942,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:18.00,Title,,0,0,0,,Another Sky
+Dialogue: 0,0:00:00.00,0:00:18.00,Label,,0,0,0,,INSIDE AN O’NEILL CYLINDER
+Dialogue: 0,0:00:00.30,0:00:04.20,Cue,,0,0,0,,{\fad(350,650)}Look up.
+Dialogue: 0,0:00:13.60,0:00:18.00,End,,0,0,0,,{\fad(650,0)}Walk around inside.
+Dialogue: 0,0:00:14.10,0:00:18.00,Link,,0,0,0,,{\fad(650,0)}dysonswarm.com/another-sky

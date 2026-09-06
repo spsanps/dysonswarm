@@ -1,0 +1,30 @@
+{
+  "createdAt": "2026-09-06T17:41:58.448Z",
+  "camera": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "durationSeconds": 18,
+    "locationIndex": 1,
+    "locationName": "Meridian Waterfront",
+    "tiltStartsAt": 1.2,
+    "tiltEndsAt": 12.8,
+    "startPitch": -0.06,
+    "endPitch": 0.85,
+    "startYaw": -1.12,
+    "endYaw": -0.3,
+    "startFieldOfView": 58,
+    "endFieldOfView": 80,
+    "easing": "smootherstep",
+    "notes": "One continuous move from a street between towers to the inhabited surface overhead. Camera stays at eye level; simulation advances at exact frame times."
+  },
+  "sourceCommit": "e5780790c53466af33ee9ae16e6dc85d0ec11397",
+  "rendererSha256": "446ba1b4204242c95f3128e702d5be4b39b2775e13fcb0ca9d917d211fdc7849",
+  "renderer": "ANGLE (Microsoft Corporation, D3D12 (NVIDIA GeForce RTX 4090), OpenGL 4.2)",
+  "frames": 540,
+  "fps": 30,
+  "width": 1920,
+  "height": 1080,
+  "captureSeconds": 121,
+  "errors": []
+}

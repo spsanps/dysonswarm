@@ -1,0 +1,18 @@
+{
+  "width": 1920,
+  "height": 1080,
+  "fps": 30,
+  "durationSeconds": 18,
+  "locationIndex": 1,
+  "locationName": "Meridian Waterfront",
+  "tiltStartsAt": 1.2,
+  "tiltEndsAt": 12.8,
+  "startPitch": -0.06,
+  "endPitch": 0.85,
+  "startYaw": -1.12,
+  "endYaw": -0.30,
+  "startFieldOfView": 58,
+  "endFieldOfView": 80,
+  "easing": "smootherstep",
+  "notes": "One continuous move from a street between towers to the inhabited surface overhead. Camera stays at eye level; simulation advances at exact frame times."
+}
