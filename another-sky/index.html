@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#123b3a">
+<meta name="description" content="Walk inside an O’Neill cylinder, where the landscape curves overhead. Explore on foot or take an aerial tour.">
+<title>Another Sky — A world to walk in</title>
+<link rel="stylesheet" href="./styles.css">
+<meta name="author" content="San Kala">
+<link rel="canonical" href="https://dysonswarm.com/another-sky/">
+<link rel="icon" type="image/svg+xml" href="./images/favicon.svg">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Dyson Swarm">
+<meta property="og:title" content="Another Sky — A world to walk in">
+<meta property="og:description" content="Walk inside an O’Neill cylinder, where the landscape curves overhead. Explore on foot or take an aerial tour.">
+<meta property="og:url" content="https://dysonswarm.com/another-sky/">
+<meta property="og:image" content="https://dysonswarm.com/another-sky/images/social-preview.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A lakeside path inside an O’Neill cylinder, with towns and green landscapes curving overhead.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Another Sky — A world to walk in">
+<meta name="twitter:description" content="Walk inside an O’Neill cylinder, where the landscape curves overhead.">
+<meta name="twitter:image" content="https://dysonswarm.com/another-sky/images/social-preview.jpg">
+<meta name="twitter:image:alt" content="A lakeside path inside an O’Neill cylinder, with towns and green landscapes curving overhead.">
+</head>
+<body>
+<noscript><div class="static-fallback"><h1>Another Sky</h1><p>A world to walk in. Enable JavaScript to explore this O’Neill cylinder.</p><img src="./images/social-preview.jpg" alt="Inside the cylinder, with landscapes curving overhead."><p><a href="/">Explore more worlds</a> · <a href="https://sankala.me">San Kala</a></p></div></noscript>
+<canvas id="world" tabindex="0" aria-label="Interactive three-dimensional O'Neill cylinder. Click to look around. WASD to move. F toggles flight. M opens the travel map."></canvas><div id="veil"></div>
+<div id="ui">
+<header class="topbar"><div class="brand"><svg class="brandmark" viewBox="0 0 40 40" fill="none" aria-hidden="true"><circle cx="20" cy="20" r="18" stroke="currentColor" stroke-width=".8"/><ellipse cx="20" cy="20" rx="10" ry="18" stroke="currentColor" stroke-width=".65"/><path d="M2 20h36M6 9.5c8 6 20 6 28 0M6 30.5c8-6 20-6 28 0" stroke="currentColor" stroke-width=".65"/><circle cx="20" cy="20" r="2.2" fill="#e9d5a7"/></svg><div><div class="brandname">ANOTHER SKY</div><small><a href="/">DYSON SWARM ↗</a> · <a href="https://sankala.me">BY SAN KALA</a></small></div></div><nav class="tools" aria-label="Explorer controls"><button class="tool" id="mapButton">Atlas<kbd>M</kbd></button><button class="tool" id="flyButton">Fly<kbd>F</kbd></button><button class="tool desktop-only" id="lightButton" title="Change lighting (L)">Daylight</button><button class="tool desktop-only" id="qualityButton" title="Rendering resolution">Quality: auto</button><button class="tool desktop-only" id="photoButton" title="Save a clean screenshot (P)">Photo<kbd>P</kbd></button><button class="tool" id="helpButton" aria-label="Help and controls">?</button></nav></header>
+<div class="statuspill" id="modeStatus">ON FOOT · RADIAL GRAVITY</div>
+<section class="intro" id="intro"><div class="eyebrow">INSIDE AN O’NEILL CYLINDER</div><h1>A world<br>above <em>you.</em></h1><p>Walk the shore. Cross the lake.<br>Fly up to the city that is your sky.</p><div class="actions"><button class="primary" id="enterButton" disabled>Building your world… <span>↗</span></button><button class="secondary" id="tourButton" disabled>Aerial tour</button></div><div class="micro">24 km across. No edge to the horizon.<br>Entirely procedural. Yours to wander.</div></section>
+<div class="hudleft"><div class="loc-sub" id="locationSub">01 / THE LAKE DISTRICT</div><div class="location" id="locationName">Firstlight Overlook</div><div class="readouts"><span><small>ABOVE THE SURFACE</small><span id="altitude">—</span></span><span><small>GROUND SPEED</small><span id="speed">0 m/s</span></span><span class="desktop-only"><small>AROUND THE WORLD</small><span id="bearing">0.0°</span></span></div></div>
+<div class="crosssection"><div class="caption">CROSS-SECTION<br><strong>24 km</strong><br><span id="sectionText">YOU ARE HERE</span></div><canvas id="section" width="180" height="180" aria-label="Cylinder cross-section showing your position"></canvas></div>
+<div class="hintbar" id="hintbar"><kbd>W A S D</kbd> move <b>·</b> <kbd>SHIFT</kbd> faster <b>·</b> <kbd>F</kbd> fly <b>·</b> <kbd>M</kbd> travel <b>·</b> <kbd>ESC</kbd> release mouse</div><div class="reticle"></div><div id="toast" role="status" aria-live="polite"></div><button class="tourbanner" id="stopTour" type="button">AUTOPILOT · TAKE CONTROL ↗</button>
+<div class="touch-controls"><div id="stick" aria-label="Move joystick"><div id="knob"></div></div><div class="touch-actions"><button id="touchUp" aria-label="Ascend or jump">↑</button><button id="touchDown" aria-label="Descend">↓</button><button id="touchFast" aria-label="Boost speed">»</button></div></div>
+</div>
+<div class="overlay" id="atlas" role="dialog" aria-modal="true" aria-labelledby="atlasTitle"><div class="panel"><div class="panel-header"><div><div class="eyebrow">THE HABITAT ATLAS</div><h2 id="atlasTitle">There is no other side.</h2><p>Choose a place, or click anywhere on the unrolled world to travel there.</p></div><button class="close" data-close aria-label="Close atlas">×</button></div><div class="atlas-layout"><div><div class="map-frame"><canvas id="map" width="810" height="600" aria-label="Unrolled map of the habitat. Click to travel."></canvas><div class="map-label">← AROUND THE CYLINDER → &nbsp; / &nbsp; EDGES JOIN</div></div><div class="map-foot">75.4 KM CIRCUMFERENCE &nbsp; × &nbsp; 56 KM LENGTH</div></div><div class="place-list" id="places"></div></div></div></div>
+<div class="overlay" id="help" role="dialog" aria-modal="true" aria-labelledby="helpTitle"><div class="panel help-panel"><div class="panel-header"><div><div class="eyebrow">A FIELD GUIDE</div><h2 id="helpTitle">Make yourself at home.</h2></div><button class="close" data-close aria-label="Close help">×</button></div><div class="controlgrid"><div>Click / drag</div><div>Look around. Click locks the mouse; dragging also works.</div><div>W A S D / arrows</div><div>Walk or fly in the direction you look.</div><div>Shift</div><div>Run on foot; boost while flying.</div><div>F</div><div>Take off / land on the surface.</div><div>Space / E · Q / Ctrl</div><div>Up / down in flight. Space jumps on foot.</div><div>Mouse wheel</div><div>Adjust flying speed, from 15 to 2,400 m/s.</div><div>M · 1–6</div><div>Open the atlas / visit a landmark.</div><div>L · H · P</div><div>Lighting / hide interface / save a photo.</div><div>R · Esc</div><div>Return to the overlook / release the mouse.</div><div>Touch screen</div><div>Left joystick to move; drag the view to look. Use ↑ and ↓ to change altitude.</div></div><div class="setting-line"><label for="sensitivity">Look sensitivity</label><input id="sensitivity" type="range" min="0.4" max="2" step=".1" value="1"></div><p class="note">Up always points toward the cylinder’s axis. Buildings and terrain are solid on foot; deep water becomes swimming. Flight is an unrestricted exploration mode. This is an imagined habitat, not an orbital-physics simulation.<br><br>The world is generated in your browser. No account is needed. Requires WebGL2. For the best view, use a desktop browser with hardware acceleration.</p><p class="note">An experiment by <a href="https://sankala.me">San Kala</a>, made with Astra. It began with a view I wanted to see: standing inside an O’Neill cylinder, with the world overhead.<br><br><a href="/">More space interactives ↗</a> · <a href="https://github.com/spsanps/dysonswarm/tree/main/another-sky">Source code</a></p></div></div>
+<div id="transition"></div>
+<div class="boot" id="boot"><div class="orbit"></div><h2>Growing another world.</h2><p id="bootText">SHAPING THE CYLINDER</p><div class="bar"><i id="bootBar"></i></div><div class="fail" id="fail"></div></div>
+<script src="./explorer.js" defer></script>
+</body></html>

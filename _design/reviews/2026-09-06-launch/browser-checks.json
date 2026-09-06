@@ -1,0 +1,11 @@
+{
+  "passed": [
+    "Homepage and swarm: 1440, 390, and 320 px; images, local links, no horizontal overflow; no JS on homepage.",
+    "Swarm: pause freezes rendering, slider works while paused, play resumes, reduced-motion starts paused.",
+    "Explorer desktop: world loads, 6 atlas destinations, flight/landing, tour start/stop, quality, photo export, Tab navigation and modal focus restoration.",
+    "Explorer mobile emulation: readable intro, touch entry, joystick shown, flight and help controls.",
+    "Fallbacks: collection works without JS; explorer explains JavaScript/WebGL2 requirements.",
+    "All 3 canonical URLs and social images resolve; no unexpected browser script errors."
+  ],
+  "errors": []
+}

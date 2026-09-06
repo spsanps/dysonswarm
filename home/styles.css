@@ -1,0 +1,88 @@
+/* The collection is intentionally static; renderers load only inside a world. */
+:root { color-scheme: light; --paper: #f1eee3; --ink: #203d38; --muted: #596961; --line: #bac2b4; --rust: #914a2f; }
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.6 Arial, sans-serif; }
+a { color: inherit; text-underline-offset: 4px; }
+a:focus-visible { outline: 2px solid var(--rust); outline-offset: 7px; }
+::selection { background: #d6dbc5; }
+.wrap { max-width: 1320px; margin: auto; padding: 0 48px; }
+.site-header { min-height: 110px; display: flex; justify-content: space-between; align-items: center; gap: 24px; border-bottom: 1px solid var(--line); }
+.wordmark { display: flex; align-items: center; gap: 13px; font-size: 12px; font-weight: 600; letter-spacing: .18em; text-decoration: none; }
+.wordmark svg { width: 37px; height: 37px; }
+.site-header nav { display: flex; gap: 29px; font-size: 12px; }
+.site-header nav a { text-decoration: none; }
+.site-header nav a:hover { text-decoration: underline; }
+.intro { display: grid; grid-template-columns: 1.4fr 1fr; align-items: end; gap: 50px; padding: 60px 0 44px; }
+.eyebrow { margin: 0 0 18px; font-size: 10px; letter-spacing: .17em; text-transform: uppercase; }
+h1 { font: 400 clamp(46px, 5.8vw, 78px)/1.04 Georgia, serif; letter-spacing: -.045em; margin: 0; }
+h1 em { color: var(--rust); font-weight: 400; }
+.intro-copy { max-width: 350px; margin: 0 0 7px auto; color: var(--muted); font-size: 15px; line-height: 1.8; }
+.featured { display: block; position: relative; text-decoration: none; background: #52776b; overflow: hidden; border-radius: 3px; }
+.featured > img { display: block; width: 100%; height: clamp(365px, 39vw, 535px); object-fit: cover; transition: transform 700ms ease; }
+.featured:hover > img { transform: scale(1.025); }
+.featured::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, #142e2010 20%, #112b2160 60%, #10281de8 100%); }
+.feature-top, .feature-bottom { position: absolute; z-index: 1; left: 34px; right: 34px; color: #f5f1df; }
+.feature-top { top: 26px; display: flex; justify-content: space-between; font-size: 9px; letter-spacing: .18em; }
+.feature-top span { background: #153b32d9; padding: 7px 11px; border: 1px solid #edf2d34d; }
+.feature-bottom { bottom: 32px; display: flex; align-items: end; justify-content: space-between; gap: 20px; }
+.feature-bottom h2 { margin: 0 0 8px; font: 400 clamp(40px, 4.2vw, 58px)/1.1 Georgia, serif; letter-spacing: -.025em; }
+.feature-bottom p { margin: 0; font-size: 13px; color: #e2e9d6; }
+.enter { display: inline-flex; align-items: center; justify-content: space-between; gap: 26px; background: #f1e8cf; color: #173b32; padding: 13px 19px; font-size: 12px; white-space: nowrap; border-radius: 2px; }
+.enter b { font-weight: normal; font-size: 20px; line-height: 1; }
+.field-caption { display: flex; justify-content: space-between; gap: 20px; color: var(--muted); font-size: 10px; padding: 13px 0 28px; border-bottom: 1px solid var(--line); }
+.below { display: grid; grid-template-columns: 1.3fr 1fr; gap: 70px; padding: 43px 0 58px; }
+.swarm-card { display: block; text-decoration: none; }
+.swarm-picture { position: relative; background: #030303; border-radius: 3px; overflow: hidden; }
+.swarm-picture img { display: block; width: 100%; height: auto; aspect-ratio: 2.05; object-fit: cover; transition: transform 600ms; }
+.swarm-card:hover img { transform: scale(1.035); }
+.swarm-picture span { position: absolute; top: 17px; left: 20px; color: #e2cfad; font-size: 9px; letter-spacing: .16em; }
+.card-copy { display: flex; align-items: start; justify-content: space-between; gap: 25px; margin-top: 19px; }
+.card-copy h2 { font: 400 31px/1.2 Georgia, serif; margin: 0 0 9px; }
+.card-copy p { font-size: 12px; color: var(--muted); margin: 0; max-width: 390px; }
+.card-arrow { font-size: 28px; line-height: 1.1; }
+.field-note { padding: 10px 0 0; }
+.field-note h2 { font: 400 34px/1.16 Georgia, serif; letter-spacing: -.02em; margin: 0 0 20px; max-width: 280px; }
+.field-note p:not(.eyebrow) { color: var(--muted); font-size: 13px; line-height: 1.9; max-width: 380px; }
+.field-note .signature { color: var(--ink); margin-top: 25px; }
+.site-footer { border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 24px; padding: 23px 0 34px; font-size: 10px; color: var(--muted); }
+.site-footer p { margin: 0; }
+.site-footer nav { display: flex; gap: 20px; }
+@media (max-width: 800px) {
+  .wrap { padding: 0 25px; }
+  .site-header { min-height: 90px; }
+  .site-header nav { gap: 18px; }
+  .intro { padding-top: 43px; gap: 24px; }
+  .intro-copy { font-size: 13px; }
+  .below { gap: 35px; }
+}
+@media (max-width: 580px) {
+  .wrap { padding: 0 20px; }
+  .site-header { min-height: 79px; gap: 12px; }
+  .wordmark { font-size: 10px; gap: 9px; letter-spacing: .13em; }
+  .wordmark svg { width: 29px; height: 29px; }
+  .site-header nav { font-size: 10px; gap: 12px; }
+  .site-header .films-link { display: none; }
+  .intro { display: block; padding: 37px 0 27px; }
+  h1 { font-size: clamp(45px, 10vw, 59px); }
+  .eyebrow { font-size: 9px; margin-bottom: 14px; }
+  .intro-copy { margin: 21px 0 0; max-width: 310px; font-size: 13px; }
+  .featured > img { height: 445px; object-position: 54% center; }
+  .feature-top, .feature-bottom { left: 21px; right: 21px; }
+  .feature-top { top: 19px; font-size: 8px; }
+  .feature-top .habitat-label { display: none; }
+  .feature-bottom { display: block; bottom: 25px; }
+  .feature-bottom h2 { font-size: 43px; }
+  .feature-bottom p { font-size: 12px; max-width: 250px; }
+  .enter { margin-top: 21px; padding: 11px 16px; }
+  .field-caption { font-size: 9px; line-height: 1.7; padding-bottom: 22px; }
+  .field-caption span:last-child { text-align: right; }
+  .below { grid-template-columns: 1fr; gap: 38px; padding: 27px 0 37px; }
+  .field-note { border-top: 1px solid var(--line); padding-top: 29px; }
+  .field-note h2 { max-width: none; }
+  .site-footer { flex-direction: column; gap: 11px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { transition: none!important; }
+}
