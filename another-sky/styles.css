@@ -209,6 +209,19 @@ h1 em {
   line-height:1.7;
   opacity:.72
 }
+.intro .poem-link {
+  font-size:11px;
+  letter-spacing:.02em;
+  margin-top:14px;
+  opacity:.86
+}
+.intro .poem-link a {
+  color:inherit;
+  white-space:nowrap;
+  text-decoration:underline;
+  text-underline-offset:3px;
+  pointer-events:auto
+}
 .exploring .intro {
   opacity:0;
   transform:translateY(16px);
