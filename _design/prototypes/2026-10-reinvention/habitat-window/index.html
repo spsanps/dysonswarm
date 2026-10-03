@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dyson Swarm</title>
+<meta name="description" content="The view from a window inside Another Sky, an O’Neill cylinder by San Kala. The light follows your clock. Walk around in it, or see the swarm.">
+<meta name="author" content="San Kala">
+<meta name="theme-color" content="#f6f1e7">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,500;1,300;1,400&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,500;1,300;1,400&display=swap" rel="stylesheet"></noscript>
+<style>
+:root{--paper:#f6f1e7;--ink:#3b3631;--soft:#6f675e;--line:#b9b0a3;--link:#5a4434}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--paper);color:var(--ink)}
+body{font-family:Spectral,Georgia,serif;font-weight:300;font-size:17px;line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:var(--link);text-decoration:none;border-bottom:1px solid #c9bba9}
+a:hover,a:focus-visible{border-bottom-color:var(--link)}
+a:focus-visible{outline:2px solid #8a6a4f;outline-offset:3px;border-radius:2px}
+.top{display:flex;justify-content:space-between;align-items:baseline;gap:16px;padding:22px clamp(16px,4vw,48px) 0}
+.mark{border:0;font-weight:500;letter-spacing:.16em;font-size:12.5px;text-transform:uppercase;color:var(--ink)}
+.top nav{display:flex;gap:20px;font-size:14.5px}
+.page{display:grid;grid-template-columns:minmax(260px,1fr) auto;align-items:center;gap:clamp(32px,6vw,96px);padding:clamp(16px,3vh,40px) clamp(16px,5vw,80px) 0;min-height:calc(100vh - 120px);max-width:1500px;margin:0 auto}
+.copy{max-width:25rem;justify-self:end}
+.copy h1{font-weight:300;font-size:clamp(25px,2.25vw,33px);line-height:1.22;margin:0 0 .7em;letter-spacing:-.005em}
+.copy p{margin:0 0 1.6em;color:var(--soft)}
+.ways{list-style:none;margin:0;padding:0;display:grid;gap:.55em}
+.ways a{font-size:17.5px}
+.ways small{display:block;color:var(--soft);font-size:14.5px;margin-top:.1em}
+.view{margin:0;display:flex;flex-direction:column;align-items:center}
+.window{position:relative;height:min(78vh,860px);aspect-ratio:.78;max-width:58vw;user-select:none}
+.window canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#wash,#wash2{opacity:0;transition:opacity 1.6s ease}
+#wash.on,#wash2.on{opacity:1}
+#glaze,#pencil{mix-blend-mode:multiply}
+#glaze{z-index:2}#lift{z-index:3}#pencil{z-index:4}
+#pencil{left:-7%;width:114%;top:-4.5%;height:117.5%;pointer-events:none}
+.view figcaption{margin-top:calc(min(78vh,860px) * .135);font-size:14.5px;color:var(--soft);text-align:center;min-height:1.5em;font-style:italic}
+.foot{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:28px clamp(16px,4vw,48px) 26px;font-size:14px;color:var(--soft)}
+.foot nav{display:flex;gap:18px;flex-wrap:wrap}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+@media (max-width:860px),(max-aspect-ratio:1/1){
+  body{font-size:16.5px}
+  .top{padding-top:16px}
+  .top nav{gap:14px;font-size:14px}
+  .page{grid-template-columns:1fr;gap:6px;padding:18px 16px 0;min-height:0}
+  .view{order:-1;margin-top:26px}
+  .window{height:auto;width:calc(100vw - 32px - 13%);max-width:520px;aspect-ratio:.74}
+  .view figcaption{margin-top:calc(min(100vw - 32px,520px) * .2);font-size:14px;padding:0 8px}
+  .copy{justify-self:start;max-width:34rem;padding-top:10px}
+  .copy h1{font-size:24px}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="mark" href="./" aria-label="Dyson Swarm home">Dyson Swarm</a>
+  <nav aria-label="More by San"><a href="https://sankala.me">San Kala</a><a href="https://www.youtube.com/@paperrobotsfilms">Paper Robots</a></nav>
+</header>
+<main class="page">
+  <section class="copy" aria-labelledby="title">
+    <h1 id="title">This is the view from a house inside Another Sky.</h1>
+    <p>The light follows your clock. You can go and walk around in it.</p>
+    <ul class="ways">
+      <li><a href="../../../../another-sky/">Walk around in Another Sky</a><small>An O’Neill cylinder, 24 km across. Best on a computer.</small></li>
+      <li><a href="../../../../swarm/">The swarm</a><small>Taking Mercury apart to build a swarm around the Sun.</small></li>
+    </ul>
+  </section>
+  <figure class="view">
+    <div class="window" id="window" role="img" aria-label="A watercolour of the view from a window inside the cylinder: a lake below, fields and towns climbing the walls on both sides and over the top, and the far end wall standing at the end of the valley.">
+      <canvas id="wash"></canvas><canvas id="wash2"></canvas>
+      <canvas id="glaze"></canvas><canvas id="lift"></canvas>
+      <canvas id="pencil"></canvas>
+    </div>
+    <figcaption id="caption" aria-live="off"></figcaption>
+  </figure>
+</main>
+<footer class="foot">
+  <span>Space things I make, by San Kala.</span>
+  <nav aria-label="Elsewhere"><a href="https://sankala.me">Essays and projects</a><a href="https://www.youtube.com/@paperrobotsfilms">Films</a><a href="https://github.com/spsanps/dysonswarm">Source</a></nav>
+</footer>
+<script src="js/world.js"></script>
+<script src="js/paper.js"></script>
+<script src="js/view.js"></script>
+<script src="js/features.js"></script>
+<script src="js/shapes.js"></script>
+<script src="js/paint.js"></script>
+<script src="js/light.js"></script>
+<script src="js/pencil.js"></script>
+<script src="js/live.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dyson Swarm — Travel bureau</title>
+<meta name="description" content="A travel bureau for places that don't exist yet. Space interactives by San Kala.">
+<!--
+  Concept 1 for a reinvented dysonswarm.com: a quiet, strict grid of travel posters,
+  each a destination, painted in code as 1970s airbrush-and-frisket illustration with one
+  slow living detail. Two destinations are open (they link to the real experiences); three
+  are ideas, marked plainly as not open yet. No renderer loads here: the posters are Canvas 2D.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caprasimo&family=Krona+One&family=Instrument+Sans:wght@400;500;600&display=swap">
+<style>
+:root {
+  --wall: #ebe3d4; --ink: #2e231d; --muted: #6d5f52; --rule: #d5c8b3; --accent: #b4532f; --board: #f2e8d5;
+  --gutter: 48px;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--wall); color: var(--ink); font: 16px/1.6 "Instrument Sans", system-ui, sans-serif; }
+a { color: inherit; text-underline-offset: 4px; text-decoration-thickness: 1px; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 5px; border-radius: 2px; }
+.top, .bureau, .foot { max-width: 1340px; margin: 0 auto; padding-left: var(--gutter); padding-right: var(--gutter); }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 84px; }
+.mark { display: inline-flex; align-items: center; gap: 12px; text-decoration: none; font: 12px/1 "Krona One", sans-serif; letter-spacing: .14em; white-space: nowrap; }
+.mark svg { width: 30px; height: 30px; }
+.top nav { display: flex; gap: 26px; font-size: 14px; }
+.top nav a { text-decoration: none; white-space: nowrap; }
+.top nav a:hover { text-decoration: underline; }
+
+.bureau { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 64px 44px; padding-top: 18px; padding-bottom: 72px; }
+.notice { display: flex; flex-direction: column; min-height: 100%; padding-top: 6px; }
+.kicker { margin: 0 0 18px; font: 10.5px/1.4 "Krona One", sans-serif; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 0; font: 400 clamp(34px, 3.3vw, 46px)/1.08 "Caprasimo", Georgia, serif; letter-spacing: -.01em; max-width: 12ch; }
+.lede { margin: 22px 0 0; max-width: 34ch; font-size: 17px; line-height: 1.62; }
+.more { margin: 16px 0 0; max-width: 34ch; color: var(--muted); font-size: 15px; }
+.board { margin-top: auto; padding-top: 28px; }
+.board-row { display: flex; justify-content: space-between; gap: 12px; padding: 11px 0; border-top: 1px solid var(--rule); font-size: 14px; }
+.board-row:last-child { border-bottom: 1px solid var(--rule); }
+.board-row span:first-child { font: 9.5px/2 "Krona One", sans-serif; letter-spacing: .15em; text-transform: uppercase; color: var(--muted); }
+.board-row b { font-weight: 500; text-align: right; }
+.board-row .sep { color: var(--muted); }
+
+.poster { display: block; text-decoration: none; color: inherit; }
+.poster .sheet { position: relative; display: block; aspect-ratio: 2 / 3; background: var(--board);
+  box-shadow: 0 1px 1px rgba(70, 45, 25, .10), 0 10px 28px -12px rgba(70, 45, 25, .38); transition: transform .5s cubic-bezier(.2,.7,.2,1), box-shadow .5s; }
+.poster canvas { display: block; width: 100%; height: 100%; opacity: 0; transition: opacity .7s ease; }
+.poster.painted canvas { opacity: 1; }
+a.poster:hover .sheet { transform: translateY(-4px); box-shadow: 0 1px 1px rgba(70, 45, 25, .10), 0 18px 34px -14px rgba(70, 45, 25, .45); }
+.cap { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; margin-top: 16px; }
+.cap b { font-weight: 600; font-size: 16px; }
+.cap .state { font-size: 13.5px; color: var(--muted); white-space: nowrap; }
+a.poster .cap .state { color: var(--accent); }
+.desc { display: block; margin-top: 3px; font-size: 14px; color: var(--muted); max-width: 40ch; }
+
+.foot { display: flex; justify-content: space-between; gap: 20px; padding-top: 22px; padding-bottom: 40px; font-size: 13px; color: var(--muted);
+  background: linear-gradient(var(--rule), var(--rule)) no-repeat var(--gutter) 0 / calc(100% - 2 * var(--gutter)) 1px; }
+.foot p { margin: 0; }
+.foot nav { display: flex; gap: 20px; flex-wrap: wrap; }
+
+@media (max-width: 1080px) {
+  .bureau { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .notice { grid-column: 1 / -1; min-height: 0; }
+  .board { margin-top: 28px; max-width: 520px; }
+}
+@media (max-width: 640px) {
+  :root { --gutter: 20px; }
+  .top { min-height: 68px; }
+  .top nav { gap: 16px; font-size: 13px; }
+  .mark { font-size: 10px; gap: 8px; letter-spacing: .1em; }
+  .mark svg { width: 24px; height: 24px; }
+  .top nav { gap: 14px; }
+  .board { padding-top: 22px; }
+  .board-row { padding: 9px 0; font-size: 13.5px; }
+  .bureau { grid-template-columns: minmax(0, 1fr); gap: 48px; padding-top: 10px; }
+  h1 { font-size: 36px; }
+  .lede { font-size: 16px; }
+  .foot { flex-direction: column; gap: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .poster .sheet, .poster canvas { transition: none; }
+  a.poster:hover .sheet { transform: none; }
+}
+/* ?t= freezes: no fades */
+.frozen .poster canvas, .frozen .poster .sheet { transition: none; }
+/* ?poster=<id>: one poster, large, for review */
+.solo .notice, .solo .foot, .solo .top { display: none; }
+.solo .bureau { grid-template-columns: minmax(0, 560px); justify-content: center; padding-top: 40px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="mark" href="/" aria-label="Dyson Swarm home">
+    <svg viewBox="0 0 40 40" fill="none" aria-hidden="true"><g stroke="currentColor" stroke-width="1.1"><circle cx="20" cy="20" r="17"/><ellipse cx="20" cy="20" rx="9" ry="17" transform="rotate(-30 20 20)"/><ellipse cx="20" cy="20" rx="17" ry="7" transform="rotate(-30 20 20)"/></g><circle cx="20" cy="20" r="3.4" fill="#b4532f"/></svg>
+    DYSON SWARM
+  </a>
+  <nav aria-label="More by San"><a href="https://sankala.me">San Kala ↗</a><a href="https://www.youtube.com/@paperrobotsfilms">Paper Robots ↗</a></nav>
+</header>
+
+<main class="bureau">
+  <section class="notice" aria-labelledby="page-title">
+    <p class="kicker">Travel bureau</p>
+    <h1 id="page-title">Places that don't exist yet.</h1>
+    <p class="lede">I like making the places I want to visit. Two are open, and you can walk around in them right here. I haven't built the other three yet.</p>
+    <p class="more">My essays and projects are on <a href="https://sankala.me">sankala.me</a>. Films are on <a href="https://www.youtube.com/@paperrobotsfilms">Paper Robots</a>.</p>
+    <div class="board" aria-label="Today at the bureau">
+      <div class="board-row"><span>Today</span><b><time id="today">Today</time><span class="sep"> · </span><span id="now"></span></b></div>
+      <div class="board-row"><span>Open</span><b>Another Sky, The Swarm</b></div>
+      <div class="board-row"><span>Not yet</span><b>Three ideas</b></div>
+    </div>
+  </section>
+
+  <a class="poster" href="/another-sky/">
+    <span class="sheet"><canvas data-poster="another-sky" role="img" aria-label="Travel poster: from a hilltop, a traveller looks up at land, lakes and towns curving overhead toward a pale end wall, with a line of daylight running down the middle of the sky."></canvas></span>
+    <span class="cap"><b>Another Sky</b><span class="state">Open · walk in ↗</span></span>
+    <span class="desc">Walk the shore inside an O'Neill cylinder, or fly up to the land overhead.</span>
+  </a>
+
+  <a class="poster" href="/swarm/">
+    <span class="sheet"><canvas data-poster="swarm" role="img" aria-label="Travel poster: the Sun surrounded by a glittering band of collectors, with Mercury in the foreground being taken apart."></canvas></span>
+    <span class="cap"><b>The Swarm</b><span class="state">Open · watch it grow ↗</span></span>
+    <span class="desc">Take Mercury apart and put its matter in orbit around the Sun.</span>
+  </a>
+
+  <article class="poster later">
+    <span class="sheet"><canvas data-poster="wheel" role="img" aria-label="Travel poster: a wheel-shaped space habitat with six spokes and green land showing through its windows, a ferry coming in toward the hub, Earth small in the distance."></canvas></span>
+    <span class="cap"><b>The Wheel</b><span class="state">Not open yet</span></span>
+    <span class="desc">A Stanford torus, 1.8 km across, turning once a minute.</span>
+  </article>
+
+  <article class="poster later">
+    <span class="sheet"><canvas data-poster="venus" role="img" aria-label="Travel poster: a domed city hanging under a balloon above a sea of yellow Venus clouds."></canvas></span>
+    <span class="cap"><b>Over Venus</b><span class="state">Not open yet</span></span>
+    <span class="desc">A floating city about 50 km up, where the air pressure is close to Earth's.</span>
+  </article>
+
+  <article class="poster later">
+    <span class="sheet"><canvas data-poster="tether" role="img" aria-label="Travel poster: a ribbon rising straight up from an ocean platform into the dawn sky, with a climber on its way up."></canvas></span>
+    <span class="cap"><b>The Tether</b><span class="state">Not open yet</span></span>
+    <span class="desc">A space elevator, from a platform on the equator up past geostationary orbit.</span>
+  </article>
+</main>
+
+<footer class="foot">
+  <p>Space interactives by <a href="https://sankala.me">San Kala</a>.</p>
+  <nav aria-label="Related"><a href="https://sankala.me">Essays &amp; projects</a><a href="https://www.youtube.com/@paperrobotsfilms">Paper Robots films</a><a href="https://github.com/spsanps/dysonswarm">Source</a></nav>
+</footer>
+
+<script src="js/paint.js"></script>
+<script src="js/kit.js"></script>
+<script src="js/bureau.js"></script>
+<script src="js/posters/another-sky.js"></script>
+<script src="js/posters/swarm.js"></script>
+<script src="js/posters/wheel.js"></script>
+<script src="js/posters/venus.js"></script>
+<script src="js/posters/tether.js"></script>
+</body>
+</html>

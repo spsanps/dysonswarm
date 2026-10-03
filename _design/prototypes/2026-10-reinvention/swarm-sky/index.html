@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dyson Swarm — one ring a day</title>
+<meta name="description" content="A Dyson swarm going up around the Sun in real time, one ring of collectors a day since 6 September 2026, kept as a stack of glass plates. Space interactives by San Kala.">
+<meta name="theme-color" content="#eee7d8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=La+Belle+Aurore&family=Old+Standard+TT:ital,wght@0,400;0,700;1,400&family=Reenie+Beanie&family=Spectral:ital,wght@0,400;0,500;1,400&display=swap">
+<style>
+  /* Concept 2 for dysonswarm.com: the swarm built in real time, kept as glass plates.
+     The page is the plate room's paperwork: warm paper, print, a ledger. */
+  :root {
+    color-scheme: light;
+    --paper: #eee7d8;
+    --paper-2: #e6ddca;
+    --ink: #2a241f;
+    --muted: #6d6256;
+    --rule: #cbbfa8;
+    --red: #a8402f;
+    --blue: #2f3b5c;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 400 16.5px/1.6 "Spectral", Georgia, serif; overflow-x: hidden; }
+  a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+  a:hover { text-decoration-thickness: 2px; }
+  :focus-visible { outline: 2px solid var(--red); outline-offset: 3px; }
+  button { font: inherit; color: inherit; }
+
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 12px 24px; flex-wrap: wrap; padding: 16px 32px 12px; }
+  .wordmark { font: 400 15px/1 "Old Standard TT", Georgia, serif; letter-spacing: .26em; text-transform: uppercase; text-decoration: none; display: inline-flex; align-items: center; gap: 10px; white-space: nowrap; }
+  .wordmark svg { width: 22px; height: 22px; }
+  .top nav { display: flex; gap: 6px 22px; flex-wrap: wrap; font-size: 15px; }
+  .top nav a { text-decoration: none; }
+  .top nav a:hover { text-decoration: underline; }
+
+  .page { display: grid; grid-template-columns: minmax(0, 1fr) minmax(330px, 400px); grid-template-rows: auto 1fr; grid-template-areas: "stage intro" "stage side"; column-gap: 28px; padding: 0 32px 0 18px; }
+  .stage { grid-area: stage; position: relative; height: calc(100svh - 54px); min-height: 560px; max-height: 980px; overflow: hidden; }
+  .intro { grid-area: intro; padding-top: 4vh; }
+  .side { grid-area: side; padding-bottom: 36px; }
+
+  .stage canvas { position: absolute; display: block; }
+  .stage .plate { transform-origin: 50% 50%; will-change: opacity; transition: opacity .7s ease; }
+  .stage.developing .plate { opacity: 0; transition: none; }
+  .stage.frozen .plate { transition: none !important; }
+  .stage .plate.swap { opacity: 0; transform-origin: 50% 50%; }
+  .stage .plate.cur.blinking { animation: blink 7s linear infinite; }
+  .stage.paused .plate.cur { animation-play-state: paused; }
+  @keyframes blink { 0%, 61% { opacity: 1; } 65%, 87% { opacity: 0; } 91%, 100% { opacity: 1; } }
+  #sleeve { filter: drop-shadow(0 3px 5px rgba(70, 48, 22, .28)); }
+  .hot { position: absolute; display: block; border-radius: 6px; }
+  .hot:hover, .hot:focus-visible { background: rgba(168, 64, 47, .07); box-shadow: 0 0 0 1px rgba(168, 64, 47, .35); }
+  .hot span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  .eyebrow { margin: 0 0 12px; font-size: 13.5px; color: var(--muted); letter-spacing: .02em; }
+  .eyebrow b { font-weight: 500; color: var(--ink); }
+  h1 { margin: 0 0 14px; font: 400 clamp(29px, 2.55vw, 38px)/1.12 "Old Standard TT", Georgia, serif; letter-spacing: -.012em; text-wrap: balance; }
+  h1 em { font-style: italic; color: var(--red); }
+  .lede { margin: 0 0 22px; color: #463c33; max-width: 36ch; }
+
+  .stepper { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; margin: 0 0 6px; }
+  .stepper button { border: 1px solid var(--rule); background: transparent; border-radius: 999px; min-width: 38px; height: 38px; cursor: pointer; font-size: 19px; line-height: 1; }
+  .stepper button:hover:not(:disabled) { background: var(--paper-2); }
+  .stepper button:disabled { opacity: .35; cursor: default; }
+  .stepper input[type=range] { width: 100%; accent-color: var(--red); margin: 0; }
+  .step-meta { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--muted); margin: 0 0 18px; }
+  .step-meta button { border: 0; background: none; padding: 0; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; color: var(--muted); font-size: 13px; }
+  .step-meta button[hidden] { display: none; }
+
+  .log { border-top: 1px solid var(--ink); padding-top: 10px; }
+  .log-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin: 0 0 6px; }
+  .log h2 { margin: 0; font: 400 13px/1.3 "Old Standard TT", Georgia, serif; letter-spacing: .2em; text-transform: uppercase; }
+  .log-head span { font-size: 13px; color: var(--muted); }
+  .log ol { list-style: none; margin: 0; padding: 0 0 14px; max-height: 186px; overflow: auto; scrollbar-width: thin; -webkit-mask-image: linear-gradient(#000 calc(100% - 34px), transparent); mask-image: linear-gradient(#000 calc(100% - 34px), transparent); }
+  .log li { display: grid; grid-template-columns: 50px 1fr; gap: 10px; padding: 6px 0 5px; border-bottom: 1px solid #ddd2bd; font-size: 15px; line-height: 1.42; }
+  .log li time { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; padding-top: 1px; }
+  .log li .note { display: block; font-style: italic; color: var(--muted); font-size: 13.5px; }
+  .log li.live time { color: var(--red); }
+  .log li.event { color: #3a3029; }
+  .log li a { white-space: nowrap; }
+  .log-more { margin-top: 8px; font-size: 13px; color: var(--muted); }
+  .log-total { margin: 10px 0 0; font-size: 14px; color: var(--muted); }
+  .log-total b { color: var(--ink); font-weight: 500; }
+
+  .worlds { margin-top: 26px; border-top: 1px solid var(--ink); padding-top: 10px; }
+  .worlds h2 { margin: 0 0 8px; font: 400 13px/1.3 "Old Standard TT", Georgia, serif; letter-spacing: .2em; text-transform: uppercase; }
+  .worlds ul { list-style: none; margin: 0; padding: 0; }
+  .worlds li { padding: 7px 0; border-bottom: 1px solid #ddd2bd; }
+  .worlds a { font-size: 17px; text-decoration: none; }
+  .worlds a:hover b { text-decoration: underline; }
+  .worlds b { font-weight: 500; }
+  .worlds small { display: block; color: var(--muted); font-size: 14px; }
+
+  .foot { grid-column: 1 / -1; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px 20px; padding: 18px 0 30px; margin-top: 8px; font-size: 13.5px; color: var(--muted); border-top: 1px solid var(--rule); }
+  .foot nav { display: flex; gap: 6px 18px; flex-wrap: wrap; }
+  .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  @media (max-width: 1100px) and (min-width: 901px) {
+    .page { grid-template-columns: minmax(0, 1fr) 330px; column-gap: 20px; padding: 0 22px 0 10px; }
+  }
+  @media (max-width: 900px) {
+    .top { padding: 14px 16px 8px; flex-wrap: nowrap; gap: 10px; }
+    .wordmark { font-size: 12.5px; letter-spacing: .2em; gap: 8px; }
+    .top nav { font-size: 13.5px; gap: 4px 13px; flex-wrap: nowrap; white-space: nowrap; }
+    .page { grid-template-columns: minmax(0, 1fr); grid-template-areas: "intro" "stage" "side"; padding: 0 16px; }
+    .intro { padding-top: 10px; }
+    h1 { font-size: 27px; margin-bottom: 4px; }
+    .intro .lede { display: none; }
+    .stage { height: 140vw; max-height: none; min-height: 0; margin: 0 -16px; }
+    .side { padding-top: 14px; }
+    .side .lede-phone { display: block; }
+    .log ol { max-height: 320px; }
+  }
+  .lede-phone { display: none; }
+  @media (prefers-reduced-motion: reduce) { .stage .plate { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="wordmark" href="/" aria-label="Dyson Swarm home">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="#2a241f"/><ellipse cx="12" cy="12" rx="10" ry="4.2" fill="none" stroke="#2a241f" stroke-width=".9" stroke-dasharray="1.6 1.4" transform="rotate(-24 12 12)"/><ellipse cx="12" cy="12" rx="7.4" ry="2.6" fill="none" stroke="#a8402f" stroke-width=".9" stroke-dasharray="1.4 1.3" transform="rotate(38 12 12)"/></svg>
+    Dyson Swarm
+  </a>
+  <nav aria-label="More by San">
+    <a href="https://www.sankala.me/">San Kala ↗</a>
+    <a href="https://www.youtube.com/@paperrobotsfilms">Paper Robots ↗</a>
+  </nav>
+</header>
+
+<main class="page">
+  <section class="intro" aria-labelledby="title">
+    <p class="eyebrow" id="eyebrow">Plate <b>—</b></p>
+    <h1 id="title">I’m building a Dyson swarm here, <em>one ring a day.</em></h1>
+    <p class="lede">It started on 6 September 2026, the day this site went up. It’s pretend, but it runs on the real clock, so it’s a little further along every time you look.</p>
+  </section>
+
+  <section class="stage developing" id="stage" aria-label="Today’s glass plate">
+    <canvas id="desk" aria-hidden="true"></canvas>
+    <canvas id="platePrev" class="plate prev" aria-hidden="true"></canvas>
+    <canvas id="plateCur" class="plate cur" role="img" aria-label="Glass plate"></canvas>
+    <canvas id="plateInk" class="plate ink" aria-hidden="true"></canvas>
+    <canvas id="sleeve" aria-hidden="true"></canvas>
+    <a class="hot" id="hot-swarm" href="/swarm/" hidden><span>Mercury, being taken apart: open the swarm simulation</span></a>
+    <a class="hot" id="hot-sky" href="/another-sky/" hidden><span>Another Sky: walk inside an O’Neill cylinder</span></a>
+  </section>
+
+  <aside class="side">
+    <p class="lede lede-phone">It started on 6 September 2026, the day this site went up. It’s pretend, but it runs on the real clock, so it’s a little further along every time you look.</p>
+    <div class="stepper" role="group" aria-label="Step through the plates">
+      <button id="prev" type="button" aria-label="Earlier plate">‹</button>
+      <input id="range" type="range" min="1" max="1" value="1" step="1" aria-label="Plate number">
+      <button id="next" type="button" aria-label="Later plate">›</button>
+    </div>
+    <div class="step-meta"><span id="rangeLabel">Plate 1 of 1</span><span><button id="blink" type="button" aria-pressed="true">Blinking against yesterday</button> <button id="today" type="button" hidden>Back to today</button></span></div>
+
+    <section class="log" aria-labelledby="logTitle">
+      <div class="log-head"><h2 id="logTitle">Plate log</h2><span id="logSub">Pacific time</span></div>
+      <ol id="log"></ol>
+      <p class="log-total" id="logTotal"></p>
+    </section>
+
+    <section class="worlds" aria-labelledby="worldsTitle">
+      <h2 id="worldsTitle">Marked on the plate</h2>
+      <ul>
+        <li><a href="/swarm/"><b>Mercury, being taken apart ↗</b><small>The swarm simulation this started with. Drag the slider and take the planet apart yourself.</small></a></li>
+        <li><a href="/another-sky/"><b>Another Sky ↗</b><small>Walk around inside an O’Neill cylinder. Best on a desktop.</small></a></li>
+      </ul>
+    </section>
+  </aside>
+
+  <footer class="foot">
+    <span>Space things by San Kala. Nothing here is real yet.</span>
+    <nav aria-label="Elsewhere"><a href="https://www.sankala.me/">sankala.me</a><a href="https://www.youtube.com/@paperrobotsfilms">Paper Robots films</a><a href="https://github.com/spsanps/dysonswarm">Source</a></nav>
+  </footer>
+</main>
+
+<script src="clock.js"></script>
+<script src="plate.js"></script>
+<script src="main.js"></script>
+</body>
+</html>
