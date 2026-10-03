@@ -69,7 +69,7 @@ if(!process.argv.includes('--compose-only')) {
         a.captureTime(time);a.draw();gl.finish();
       };
     },camera);
-    await page.addStyleTag({content:'#ui,#veil,#boot,#transition,.overlay{display:none!important}'});
+    await page.addStyleTag({content:'#front,#ui,#veil,#boot,#transition,.overlay{display:none!important}'});
     console.log('Renderer:',await page.evaluate(()=>window.__captureGpu));
     encoder=startEncoder([
       '-f','image2pipe','-framerate',String(camera.fps),'-vcodec','png','-i','pipe:0',

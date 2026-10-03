@@ -51,9 +51,15 @@ const MAP_W=1024,MAP_H=768;
 let mapData,terrainTexture,gl,program,skyProgram,meshes=[],transparentMeshes=[],drawCalls=0,triangleCount=0,buildingCount=0,treeCount=0;
 const stats={fps:0,frames:0,triangles:0,buildings:0,trees:0,ready:false,errors:[]};
 const canvas=$('world');
-function fail(message,error){stats.errors.push(String(error||message));console.error(message,error||'');$('boot').style.display='flex';$('boot').style.opacity='1';$('bootText').textContent='A WINDOW COULD NOT BE OPENED';$('fail').style.display='block';$('fail').textContent=message;$('boot').querySelector('.orbit').style.display='none';}
-function progress(text,p){$('bootText').textContent=text;$('bootBar').style.width=p+'%';}
-const nextFrame=()=>new Promise(resolve=>requestAnimationFrame(()=>setTimeout(resolve,0)));
+// The front door (another-sky/window/front.js) shows progress and failures under
+// the painted window. Without it, they go straight into the status line.
+const front=window.SkyFront||null;
+function fail(message,error){stats.errors.push(String(error||message));if(error)console.error(message,error);else console.warn(message);if(front)front.fail(message,ready);else{const el=$('frontStatus');if(el)el.textContent=message;}}
+function progress(text,p){if(front)front.progress(text,p);else{const el=$('frontStatus');if(el)el.textContent='Building the world outside… '+p+'%';}}
+// Yield between build steps. Behind the window nothing is drawn, so there's no need
+// to wait for a frame each time (that cost a frame per step while the window paints).
+const yieldChan=new MessageChannel(),yieldWaiting=[];yieldChan.port1.onmessage=()=>{const r=yieldWaiting.shift();if(r)r();};
+const nextFrame=()=>new Promise(resolve=>{yieldWaiting.push(resolve);yieldChan.port2.postMessage(0);});
 function shader(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)){const log=gl.getShaderInfoLog(s);gl.deleteShader(s);throw new Error(log);}return s;}
 function makeProgram(v,f){const p=gl.createProgram();const vs=shader(gl.VERTEX_SHADER,v),fs=shader(gl.FRAGMENT_SHADER,f);gl.attachShader(p,vs);gl.attachShader(p,fs);gl.linkProgram(p);gl.deleteShader(vs);gl.deleteShader(fs);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(p));return p;}
 const VS=`#version 300 es
@@ -327,7 +333,7 @@ const POI=[
 ];
 const player={s:POI[0].s,z:POI[0].z,h:0,yaw:POI[0].yaw,pitch:POI[0].pitch,fly:false,vs:0,vz:0,vh:0,jump:0,speed:0,swim:false};
 let exploring=false,locked=false,overlay=null,overlayFocus=null,keys=new Set(),flySpeed=120,night=0,nightTarget=0,sensitivity=1,lastTime=0,worldTime=0,toastTimer=0;
-let quality='auto',resolution=1,frameAverage=1/60,adaptiveTimer=0,autoRatio=1,uiHidden=false,tour=false,tourTime=0,ready=false,paused=false;
+let atWindow=true,looping=false,quality='auto',resolution=1,frameAverage=1/60,adaptiveTimer=0,autoRatio=1,uiHidden=false,tour=false,tourTime=0,ready=false,paused=false;
 let testFreeze=false;
 let isTouch=matchMedia('(pointer:coarse)').matches,dragging=false,dragged=false,lastPointer=[0,0],touchMove=[0,0],touchVertical=0,touchBoost=false;
 if(isTouch)document.body.classList.add('touch');
@@ -341,7 +347,7 @@ function meshTerrainHeight(s,z){
 function support(s,z,allowRoof=false){let h=Math.max(.35,meshTerrainHeight(s,z)),deck=bridgeDeck(s,z);if(deck>-Infinity)h=Math.max(h,deck+1.6);for(const p of platforms)if(Math.abs(deltaS(s,p.s))<p.w/2&&Math.abs(z-p.z)<p.d/2)h=Math.max(h,p.top);const roof=roofAt(s,z);if(allowRoof||roof+1.1<player.h)h=Math.max(h,roof);return h;}
 function jump(){if(!player.fly&&player.h-support(player.s,player.z)<2.1&&!player.swim)player.jump=5.6;}
 function snapTo(p){player.s=wrap(p.s);player.z=clamp(p.z,-HALF+80,HALF-80);player.yaw=p.yaw??player.yaw;player.pitch=p.pitch??player.pitch;player.fly=!!p.alt;player.h=support(player.s,player.z,true)+(p.alt||1.75);player.vs=player.vz=player.vh=player.jump=0;player.speed=0;updateFlyUI();updateHUD();}
-function begin(capture=true){exploring=true;document.body.classList.add('exploring');$('intro').inert=true;canvas.focus();if(capture&&!isTouch)captureMouse();}
+function begin(capture=true){exploring=true;document.body.classList.add('exploring');canvas.focus();if(capture&&!isTouch)captureMouse();}
 function captureMouse(){if(!canvas.requestPointerLock){toast('Drag to look around. WASD still moves you.');return;}try{const p=canvas.requestPointerLock();if(p&&p.catch)p.catch(()=>toast('Mouse lock is unavailable here. Drag to look; WASD to move.'));}catch(e){toast('Drag to look around. WASD still moves you.');}}
 function toast(text){$('toast').textContent=text;$('toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('show'),3800);}
 function updateFlyUI(){$('flyButton').classList.toggle('active',player.fly);$('flyButton').innerHTML=(player.fly?'Land':'Fly')+'<kbd>F</kbd>';}
@@ -405,7 +411,7 @@ function updateHUD(){let nearest=0,nd=Infinity;for(let i=0;i<POI.length;i++){con
  $('modeStatus').textContent=tour?'AUTOPILOT · AERIAL TOUR':player.fly?'FREE FLIGHT · '+Math.round(flySpeed)+' M/S · SCROLL TO ADJUST':player.swim?'SWIMMING · THE LAKE COUNTRY':'ON FOOT · RADIAL GRAVITY';$('sectionText').textContent=player.fly?'IN FLIGHT':'YOU ARE HERE';drawSection();if(overlay==='atlas')drawMap();
 }
 function bindInputs(){
- $('enterButton').onclick=()=>{begin();toast('Look up. That is not the sky — it is another city.');};$('tourButton').onclick=startTour;$('stopTour').onclick=()=>stopTour();
+ $('stopTour').onclick=()=>stopTour();
  $('mapButton').onclick=()=>toggleOverlay('atlas');$('flyButton').onclick=toggleFly;$('helpButton').onclick=()=>toggleOverlay('help');$('lightButton').onclick=toggleLight;
  $('qualityButton').onclick=()=>{const a=['auto','high','medium','low'];setQuality(a[(a.indexOf(quality)+1)%a.length]);};$('photoButton').onclick=savePhoto;$('hintbar').onclick=()=>openOverlay('help');
  $('sensitivity').oninput=e=>sensitivity=+e.target.value;
@@ -413,7 +419,7 @@ function bindInputs(){
  for(const el of document.querySelectorAll('.overlay'))el.addEventListener('pointerdown',e=>{if(e.target===el)closeOverlays();});
  $('map').addEventListener('click',e=>{const r=e.currentTarget.getBoundingClientRect();teleportMap((e.clientX-r.left)/r.width*CIRC-CIRC/2,(e.clientY-r.top)/r.height*LENGTH-HALF);});
  window.addEventListener('keydown',e=>{
- if(!ready)return;if(e.target.tagName==='INPUT'&&!['Escape','Tab'].includes(e.code))return;
+ if(!ready||atWindow)return;if(e.target.tagName==='INPUT'&&!['Escape','Tab'].includes(e.code))return;
  const controlled=['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'];const isControl=e.target.closest('button,a,input,select,textarea');if(controlled.includes(e.code)&&!overlay&&!isControl)e.preventDefault();
  if(e.code==='Escape'){if(uiHidden){uiHidden=false;document.body.classList.remove('ui-hidden');}closeOverlays();keys.clear();return;}
  if(overlay){if(e.code==='KeyM'&&overlay==='atlas')closeOverlays();if(e.code==='Tab'){let btns=[...$(overlay).querySelectorAll('button,input,a[href]')],i=btns.indexOf(document.activeElement);e.preventDefault();btns[(i+(e.shiftKey?-1:1)+btns.length)%btns.length].focus();}return;}
@@ -428,7 +434,7 @@ function bindInputs(){
  document.addEventListener('pointerlockchange',()=>{locked=document.pointerLockElement===canvas;document.body.classList.toggle('locked',locked);keys.clear();if(!locked&&exploring&&!overlay&&!tour)toast('Mouse released. Click the world to look around, or open the atlas.');});
  document.addEventListener('pointerlockerror',()=>toast('Drag to look around. WASD and all other controls still work.'));
  canvas.addEventListener('pointerdown',e=>{if(locked||overlay)return;if(e.pointerType==='touch'){isTouch=true;document.body.classList.add('touch');if(!exploring)begin(false);}dragging=true;dragged=false;lastPointer=[e.clientX,e.clientY];try{canvas.setPointerCapture(e.pointerId);}catch(_){}});
- window.addEventListener('pointermove',e=>{if(!ready||overlay)return;let dx=0,dy=0;if(locked){dx=e.movementX;dy=e.movementY;}else if(dragging){dx=e.clientX-lastPointer[0];dy=e.clientY-lastPointer[1];lastPointer=[e.clientX,e.clientY];if(Math.abs(dx)+Math.abs(dy)>2)dragged=true;}else return;if(tour&&(Math.abs(dx)+Math.abs(dy)>1))stopTour(false);player.yaw+=dx*.00205*sensitivity;player.pitch=clamp(player.pitch-dy*.00205*sensitivity,-1.48,1.48);});
+ window.addEventListener('pointermove',e=>{if(!ready||overlay)return;let dx=0,dy=0;if(locked){if(Math.abs(e.movementX)>250||Math.abs(e.movementY)>250)return;dx=e.movementX;dy=e.movementY;}else if(dragging){dx=e.clientX-lastPointer[0];dy=e.clientY-lastPointer[1];lastPointer=[e.clientX,e.clientY];if(Math.abs(dx)+Math.abs(dy)>2)dragged=true;}else return;if(tour&&(Math.abs(dx)+Math.abs(dy)>1))stopTour(false);player.yaw+=dx*.00205*sensitivity;player.pitch=clamp(player.pitch-dy*.00205*sensitivity,-1.48,1.48);});
  window.addEventListener('pointerup',()=>dragging=false);window.addEventListener('pointercancel',()=>dragging=false);
  canvas.addEventListener('click',()=>{if(!ready||dragged||isTouch)return;if(!exploring)begin(false);if(!locked)captureMouse();});
  canvas.addEventListener('wheel',e=>{e.preventDefault();if(!ready||overlay)return;if(player.fly){flySpeed=clamp(flySpeed*Math.exp(-e.deltaY*.0016),15,2400);updateHUD();}else toast('Press F to fly. Then scroll to adjust your speed.');},{passive:false});
@@ -454,7 +460,7 @@ function draw(){if(!gl||gl.isContextLost())return;gl.viewport(0,0,canvas.width,c
  gl.uniformMatrix4fv(U.vp,false,vp);gl.uniform3fv(U.cam,camera.eye);gl.uniform1f(U.time,worldTime);gl.uniform1f(U.night,night);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,terrainTexture);gl.uniform1i(U.terrain,0);drawCalls=1;for(const b of meshes)b.draw();
  if(shadowBatch){gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);shadowBatch.draw();gl.depthMask(true);gl.disable(gl.BLEND);}gl.bindVertexArray(null);
 }
-function frame(time){if(!ready)return;let dt=lastTime?Math.min(.05,(time-lastTime)/1000):1/60;const raw=lastTime?(time-lastTime)/1000:1/60;lastTime=time;if(!paused&&!testFreeze){worldTime+=dt;updatePlayer(dt);night=lerp(night,nightTarget,1-Math.exp(-dt*1.5));trainTime+=dt;if(trainTime>.045){updateTrains();trainTime=0;}draw();hudTime+=dt;if(hudTime>.12){updateHUD();hudTime=0;}
+function frame(time){if(!ready||atWindow){looping=false;return;}let dt=lastTime?Math.min(.05,(time-lastTime)/1000):1/60;const raw=lastTime?(time-lastTime)/1000:1/60;lastTime=time;if(!paused&&!testFreeze){worldTime+=dt;updatePlayer(dt);night=lerp(night,nightTarget,1-Math.exp(-dt*1.5));trainTime+=dt;if(trainTime>.045){updateTrains();trainTime=0;}draw();hudTime+=dt;if(hudTime>.12){updateHUD();hudTime=0;}
  frameAverage=lerp(frameAverage,Math.min(raw,.5),.025);adaptiveTimer+=Math.min(raw,1);
  if(quality==='auto'&&adaptiveTimer>5){adaptiveTimer=0;if(frameAverage>.045&&autoRatio>.63){autoRatio=Math.max(.62,autoRatio*.82);resize();}else if(frameAverage<.019&&autoRatio<1){autoRatio=Math.min(1,autoRatio*1.10);resize();}}
  framesInSecond++;if(time-fpsTime>1000){stats.fps=Math.round(framesInSecond*1000/(time-fpsTime));stats.frames+=framesInSecond;framesInSecond=0;fpsTime=time;}
@@ -462,9 +468,11 @@ function frame(time){if(!ready)return;let dt=lastTime?Math.min(.05,(time-lastTim
 }
 function savePhoto(){if(!ready)return;draw();canvas.toBlob(blob=>{if(!blob){toast('Photo could not be saved in this browser.');return;}const a=document.createElement('a'),url=URL.createObjectURL(blob);a.href=url;a.download='another-sky-'+(night>.5?'night':'day')+'-'+Date.now()+'.png';a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);toast('Photo saved, without the interface. Press H for an uninterrupted view.');},'image/png');}
 async function init(){try{
- gl=canvas.getContext('webgl2',{antialias:true,alpha:false,preserveDrawingBuffer:true,powerPreference:'high-performance',depth:true,stencil:false});
- if(!gl){fail('This world needs WebGL2. Open this file in a recent Chrome, Edge, Firefox or Safari browser with hardware acceleration enabled. A browser preview inside another app may not support it.');return;}
- canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();ready=false;fail('The graphics context was interrupted. Reload the file to rebuild the world. Close other graphics-heavy tabs or lower the quality setting.');});canvas.addEventListener('webglcontextrestored',()=>location.reload());
+ try{gl=canvas.getContext('webgl2',{antialias:true,alpha:false,preserveDrawingBuffer:true,powerPreference:'high-performance',depth:true,stencil:false});}catch(_){gl=null;}
+ if(!gl){fail('Your browser can’t open the 3D world outside: it needs WebGL2. The window still works. In a recent desktop browser with hardware acceleration you can step outside.');return;}
+ canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();ready=false;fail('The 3D world was interrupted by the graphics driver. Reload the page to build it again. Closing other graphics-heavy tabs can help.');});canvas.addEventListener('webglcontextrestored',()=>location.reload());
+ // Let the painted window get started first; then build the world behind it.
+ if(front&&front.bootWhen)await front.bootWhen;
  progress('OPENING A WINDOW INTO ANOTHER WORLD',3);await nextFrame();program=makeProgram(VS,FS);skyProgram=makeProgram(SKYVS,SKYFS);skyVAO=gl.createVertexArray();
  U={vp:gl.getUniformLocation(program,'uVP'),cam:gl.getUniformLocation(program,'uCamera'),time:gl.getUniformLocation(program,'uTime'),night:gl.getUniformLocation(program,'uNight'),terrain:gl.getUniformLocation(program,'uTerrain')};SU.night=gl.getUniformLocation(skyProgram,'uNight');
  resize();await makeMapTexture();progress('CURVING THE GROUND INTO THE SKY',29);addTerrain();await nextFrame();
@@ -477,10 +485,21 @@ async function init(){try{
  progress('PREPARING YOUR FIRST FOOTSTEP',88);for(let i=0;i<meshes.length;i++){meshes[i].upload(meshes[i]===moving);if(i%10===0)await nextFrame();}
  shadowBatch=new Batch(shadowGeo,'soft architectural contact shadows');shadowBatch.add(matrix([0,0,0]),palette.dark,10);shadowBatch.upload();
  snapTo(POI[0]);bindInputs();ready=true;stats.ready=true;stats.buildings=buildingCount;stats.trees=treeCount;stats.triangles=triangleCount;stats.drawCalls=meshes.length+2;
- updateTrains();draw();progress('WELCOME HOME',100);await nextFrame();draw();
- $('enterButton').disabled=false;$('enterButton').innerHTML='Enter the cylinder <span>↗</span>';$('tourButton').disabled=false;$('boot').style.opacity='0';setTimeout(()=>$('boot').style.display='none',750);updateHUD();requestAnimationFrame(frame);
+ // One frame is drawn behind the window so shaders are warm; the loop starts on stepping outside.
+ updateTrains();draw();progress('WELCOME HOME',100);updateHUD();
+ if(front)front.ready();else stepOutside();
  console.info('Another Sky ready:',stats);
  }catch(error){fail('The world could not finish building. '+error.message+' Try reloading, or open the file in a desktop browser with hardware acceleration.',error);}}
+ function startLoop(){if(looping||!ready)return;looping=true;lastTime=0;requestAnimationFrame(frame);}
+ // Called by the front door. mode: 'walk' (the old Enter) or 'tour'; night matches the window's hour.
+ function stepOutside(o={}){if(!ready)return false;atWindow=false;if(o.night!==undefined){night=nightTarget=o.night?1:0;$('lightButton').textContent=nightTarget?'Nightfall':'Daylight';}
+  startLoop();if(o.mode==='tour')startTour();else{begin(o.capture!==false);toast('Look up. That is not the sky — it is another city.');}return true;}
+ function backToWindow(){stopTour(false);closeOverlays();if(document.pointerLockElement)document.exitPointerLock();keys.clear();exploring=false;atWindow=true;document.body.classList.remove('exploring','locked');}
+ // Where the far end wall's disc sits on screen (CSS px), so the window can zoom onto it.
+ function endWallOnScreen(){const c=cameraState(),view=look(c.eye,c.dir,c.up),proj=perspective(78*Math.PI/180,innerWidth/innerHeight,.18,120000),m=matmul(proj,view);
+  const at=p=>{const x=m[0]*p[0]+m[4]*p[1]+m[8]*p[2]+m[12],y=m[1]*p[0]+m[5]*p[1]+m[9]*p[2]+m[13],w=m[3]*p[0]+m[7]*p[1]+m[11]*p[2]+m[15];return w>0?[(x/w*.5+.5)*innerWidth,(.5-y/w*.5)*innerHeight]:null;};
+  const o=at([0,0,-HALF]),e=at([0,-R,-HALF]),f=at([R,0,-HALF]);if(!o||!e||!f)return null;return{x:o[0],y:o[1],r:(Math.hypot(e[0]-o[0],e[1]-o[1])+Math.hypot(f[0]-o[0],f[1]-o[1]))/2};}
+ window.AnotherSky={get ready(){return ready;},stepOutside,backToWindow,endWallOnScreen};
  // A small, read-only-by-convention diagnostics surface for the included smoke test.
  window.__AS={stats,player,POI,terrain,support,obstacleAt,cameraState,get ready(){return ready;},get mode(){return player.fly?'flight':player.swim?'swim':'walk';},get quality(){return quality;},get tour(){return tour;},get flySpeed(){return flySpeed;},get night(){return night;},get drawCalls(){return drawCalls;},freeze:(value)=>testFreeze=value,setLighting:t=>{night=nightTarget=clamp(t,0,1);$('lightButton').textContent=nightTarget?'Nightfall':'Daylight';},refresh:()=>{updateHUD();draw();},teleport:(i)=>snapTo(POI[i]),begin:()=>begin(false),startTour,stopTour,toggleFly,draw,setQuality,step:dt=>updatePlayer(dt),colliders};
  init();
