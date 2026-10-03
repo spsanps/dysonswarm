@@ -12,10 +12,11 @@ and [Paper Robots](https://www.youtube.com/@paperrobotsfilms) for films.
 | `home/` | Homepage styles, icon, and share image. |
 | `another-sky/` | O’Neill-cylinder explorer: page, styles, renderer, preview images. |
 | `swarm/` | Original pixel swarm: page, styles, simulation, preview image. |
+| `triton/` | Four Hours Out, a clay-model computing campus on Triton: page, styles, renderer (`js/`), fonts, preview images. |
 | `og-image.png` | Original swarm share image; existing public URL preserved. |
 | `worlds/` | Alias that takes visitors to the collection homepage. |
 | `_archive/another-sky/` | Exact original HTML supplied for the September 2026 launch. |
-| `_design/social-cards/` | Browser-rendered source for the collection’s share card. |
+| `_design/social-cards/` | Browser-rendered sources for share cards (collection, Triton). |
 | `_design/reviews/` | Release notes and verification records. |
 | `_social/another-sky/` | Reveal-clip exports, clean capture, editable titles/camera source, and post drafts. |
 | `CNAME`, `robots.txt`, `sitemap.xml` | Domain and search discovery. |
