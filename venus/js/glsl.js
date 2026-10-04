@@ -256,10 +256,6 @@ uniform float uAirK;                  // painter's thinning of the air at night
 uniform vec3 uFlash; uniform vec3 uFlashDir;
 uniform vec3 uColonyPos; uniform float uColonyLight;
 uniform float uExposure;
-// Venus is drawn only as the poster now: the scene writes material, light and air for the
-// poster pass. A constant (not a uniform) lets the compiler drop the colour-only paths, which
-// keeps the shaders small for Direct3D (Chrome and Edge on Windows).
-const float uPoster = 1.0;
 int gMat = 0; float gAux = 0.0;
 
 float trueAlt(float y){ return y / EXAG; }
@@ -386,13 +382,21 @@ float iceTopFrom(vec2 xz, float floorY){
 #endif
   if (uIceOn < 0.5 || floorY >= 0.0) return -1e9;
   float y = 0.24*floorY;
+#ifndef VENUS_NOHEX
   if (uYear > PAVE_SEA_START){
     Hex h = hexInfo(xz); Sched s = hexSchedule(h);
     if (seaPaved(s)) y = max(y + 3.0*EXAG, islandTop(h, s));
   }
+#endif
   return y;
 }
-float iceTop(vec2 xz){ return iceTopFrom(xz, baseHeight(xz)); }
+// the same, for the hit point, whose hexagon is already known (shared with the albedos)
+float iceTopHex(float floorY, Hex h, Sched s){
+  if (uIceOn < 0.5 || floorY >= 0.0) return -1e9;
+  float y = 0.24*floorY;
+  if (uYear > PAVE_SEA_START && seaPaved(s)) y = max(y + 3.0*EXAG, islandTop(h, s));
+  return y;
+}
 
 // ── sky ──
 float phaseR(float c){ return 3.0/(16.0*PI)*(1.0 + c*c); }
@@ -513,6 +517,7 @@ vec3 skyColor(vec3 rd, bool withDisc){
   col += nightSky(rd) * uStarVis * Tv;
   if (uShadeVis > 0.001) col += shadeDisc(rd) * uShadeVis * Tv;
   // the soletta's image of the Sun: a full-size disc, 40% wider than Earth's Sun
+#ifndef VENUS_NOHEX
   if (withDisc && uSoletta > 0.0){
     float c = dot(rd, uLightDir);
     float r = 0.75*0.0174533*0.5*1.0;   // angular radius (rad)
@@ -521,6 +526,7 @@ vec3 skyColor(vec3 rd, bool withDisc){
     col += uLightCol * disc * 9000.0 * uSoletta * (1.0 - uClouds*0.0);
     col += uLightCol * exp(-d*60.0) * 1.2 * uSoletta;
   }
+#endif
   return col;
 }
 
@@ -538,21 +544,25 @@ float cloudDensity(vec2 xz){
 }
 // colour (premultiplied) and alpha of the cloud layer along a ray, up to tMax
 vec4 cloudLayer(vec3 ro, vec3 rd, float tMax){
+#ifdef VENUS_EARLY
+  return vec4(0.0);   // no cloud layer before the CO2 rains (uCloud.x is 0 then)
+#endif
   if (uCloud.x <= 0.001) return vec4(0.0);
   float cy = uCloud.z;
   float t = (cy - ro.y) / rd.y;
   if (t <= 0.0 || t > tMax || abs(rd.y) < 1e-4) return vec4(0.0);
   vec3 p = ro + rd*t;
   if (t > 260000.0) return vec4(0.0);
-  float d = cloudDensity(p.xz);
-  if (d <= 0.001) return vec4(0.0);
-  // light: compare with the density a little toward the light; edges toward it are lit
-  vec2 lxz = normalize(uLightDir.xz + 1e-4);
-  float dl = cloudDensity(p.xz + lxz*600.0);
+  // the density here, a little toward the light (edges toward it are lit), and a little
+  // toward us (the side of each heap facing us is its shaded base): one call site
+  vec2 lxz = normalize(uLightDir.xz + 1e-4), vxz = normalize(rd.xz + 1e-4);
+  float d = 0.0, dl = 0.0, dn = 0.0;
+  for (int k=0;k<3+uZero;k++){
+    float dk = cloudDensity(p.xz + (k == 1 ? lxz*600.0 : k == 2 ? -vxz*500.0 : vec2(0.0)));
+    if (k == 0){ d = dk; if (d <= 0.001) return vec4(0.0); }
+    else if (k == 1) dl = dk; else dn = dk;
+  }
   float lit = clamp(0.55 + (d - dl)*1.8, 0.0, 1.0);
-  // the side of each heap facing us is its shaded base; the far side its lit top
-  vec2 vxz = normalize(rd.xz + 1e-4);
-  float dn = cloudDensity(p.xz - vxz*500.0);
   float base = clamp((d - dn)*2.0, 0.0, 1.0);
   lit *= 1.0 - 0.55*base;
   float below = ro.y < cy ? 1.0 : 0.0;     // seen from below: the dark base dominates
@@ -643,13 +653,17 @@ vec3 airPerspective(vec3 col, vec3 p){
 `;
 
 // Debug views (?debug=1..7) are compiled in only when asked for: each one is another copy of
-// the terrain functions for Direct3D's compiler. `early` builds the scene for the years before
-// the CO2 rains (no seas, ice, paving or soil): it compiles in a fraction of the time, so the
-// first view opens quickly while the full scene compiles in the background (see app.js).
-export const EARLY_UNTIL = 19.9;
-export const SCENE_FS = (debug = false, early = false) => `#version 300 es
+// the terrain functions for Direct3D's compiler. The scene is also built in three tiers, so the
+// first view opens quickly while the rest compiles in the background (see app.js):
+//   0 EARLY  the years before the CO2 rains: no seas, ice, clouds, paving or soil;
+//   1 MID    seas, freezing and snow, before the paving: no hexagons, water or soletta;
+//   2 FULL   everything.
+export const TIER_UNTIL = [19.9, 109.3, Infinity];
+export const SCENE_FS = (debug = false, tier = 2) => `#version 300 es
 ${debug ? '#define VENUS_DEBUG 1' : ''}
-${early ? '#define VENUS_EARLY 1' : ''}
+${tier === 0 ? '#define VENUS_EARLY 1' : ''}
+${tier === 1 ? '#define VENUS_MID 1' : ''}
+${tier < 2 ? '#define VENUS_NOHEX 1' : ''}
 ${COMMON()}
 ${SCENE_COMMON()}
 in vec2 vUV;
@@ -659,7 +673,7 @@ uniform float uLogK; uniform float uMaxT; uniform int uSteps;
 uniform float uDebug; uniform float uDebugR;
 
 // Rock, frost, sheeting, soil, grass: what the land is at this year.
-vec3 landAlbedo(vec3 p, vec3 N, float cav, float slope, out float spec, out float sheen, out vec2 machine, out float workLight, out vec2 bump){
+vec3 landAlbedo(vec3 p, vec3 N, float cav, float slope, Hex hxIn, Sched scIn, out float spec, out float sheen, out vec2 machine, out float workLight, out vec2 bump){
   vec2 xz = p.xz;
   bump = vec2(0.0);
   float dNear = length(p - uCam);
@@ -694,12 +708,12 @@ vec3 landAlbedo(vec3 p, vec3 N, float cav, float slope, out float spec, out floa
   float snow = clamp(max(drift, frost*smoothstep(0.2, 0.7, n1 + 0.5)), 0.0, 1.0);
   vec3 snowCol = vec3(0.80, 0.83, 0.88) * (0.92 + 0.08*n3);
 
-#ifdef VENUS_EARLY
+#ifdef VENUS_NOHEX
   // nothing is laid on the land before the paving years
   vec2 mPave = vec2(1e9), mSoil = vec2(1e9); float aPave = 0.0, aSoil = 0.0, covered = 0.0, soiled = 0.0;
   Hex hx; Sched sc;
 #else
-  Hex hx = hexInfo(xz); Sched sc = hexSchedule(hx);
+  Hex hx = hxIn; Sched sc = scIn;   // this point's hexagon, from main()
   vec2 mPave, mSoil; float aPave, aSoil;
   float covered = uYear > sc.pave ? laneCover(hx, xz, sc.pave, LAND_DUR, sc.laneA, mPave, aPave) : 0.0;
   if (uYear > sc.pave + LAND_DUR) { covered = 1.0; aPave = 0.0; }
@@ -816,7 +830,7 @@ vec3 landAlbedo(vec3 p, vec3 N, float cav, float slope, out float spec, out floa
 }
 
 // The old sea floor's cover: ice, hexagon paving, soil on the raised hexagons.
-vec3 seaAlbedo(vec3 p, out float spec, out float sheen, out float seamLight){
+vec3 seaAlbedo(vec3 p, Hex hx, Sched sc, out float spec, out float sheen, out float seamLight){
   vec2 xz = p.xz;
   float n1 = fbm(xz/60.0, 4), n2 = fbm(xz/700.0, 3);
   // CO2 ice: white, cracked into plates
@@ -827,18 +841,17 @@ vec3 seaAlbedo(vec3 p, out float spec, out float sheen, out float seamLight){
   col = mix(col, vec3(0.92, 0.93, 0.95), uSnow*0.6);
   spec = 0.25; sheen = 0.0; seamLight = 0.0;
   gMat = 9; gAux = smoothstep(0.46, 0.5, max(abs(cf.x), abs(cf.y)));
+#ifndef VENUS_NOHEX
   {
-    Hex hp = hexInfo(xz); Sched sp = hexSchedule(hp);
-    float dc = length(xz - hp.c);
-    float tu = sp.user.r > 0.0 ? uClock - sp.user.r : -1.0;
-    float ta = (uYear - (sp.seaPave - 1.4)) / 1.4;          // the colonies' floaters, by year
+    float dc = length(xz - hx.c);
+    float tu = sc.user.r > 0.0 ? uClock - sc.user.r : -1.0;
+    float ta = (uYear - (sc.seaPave - 1.4)) / 1.4;          // the colonies' floaters, by year
     float pool = 0.0;
     if (tu >= 0.0 && tu < 5.0) pool = smoothstep(0.0, 0.4, tu) * (1.0 - smoothstep(3.6, 5.0, tu));
     if (ta > 0.0 && ta < 1.15) pool = max(pool, (1.0 - smoothstep(0.95, 1.15, ta)) * 0.8);
     seamLight += pool * exp(-dc*dc/(820.0*820.0)) * 0.6;
   }
-  if (uYear > PAVE_SEA_START || true){
-    Hex hx = hexInfo(xz); Sched sc = hexSchedule(hx);
+  {
     if (seaPaved(sc)){
       // a hexagon of hollow blocks, foamed rock and sheeting
       float tone = sc.r2;
@@ -889,6 +902,7 @@ vec3 seaAlbedo(vec3 p, out float spec, out float sheen, out float seamLight){
       }
     }
   }
+#endif
   return col;
 }
 
@@ -928,8 +942,10 @@ void main(){
   vec3 ro = uCam;
 
   // liquid surface (CO2 sea, later water over the paving) on the sphere
-#ifdef VENUS_EARLY
+#if defined(VENUS_EARLY)
   float liquidY = -1e9;   // no seas yet
+#elif defined(VENUS_MID)
+  float liquidY = uSeaLiquid > 0.5 ? uSeaY : -1e9;   // no water yet
 #else
   float liquidY = uSeaLiquid > 0.5 ? uSeaY : (uWater > 0.001 ? uWaterY : -1e9);
 #endif
@@ -949,37 +965,67 @@ void main(){
   float bExt0 = (uBetaR.g*exp(-y0c/uHR) + uBetaM.g*exp(-y0c/uHM)) * uAirK;
   float tFog = 9.0 / max(bExt0, 1e-9) * (rd.y > 0.0 ? 1.0 + rd.y*30.0 : 1.0);
   tMax = min(tMax, tFog);
-  // After the first step under the ground, the same loop bisects between the last two
-  // steps six times (one call site for surfaceH keeps the shader small for FXC).
-  int refine = -1; float lo = 0.0, hi = 0.0;
-  for (int i=0;i<406+uZero;i++){
-    if (refine < 0 && i >= uSteps) break;
-    float tq = refine < 0 ? t : 0.5*(lo+hi);
-    vec3 p = ro + rd*tq;
-    float h = surfaceH(p.xz, tq, terr) - curvature(p.xz);
-    float d = p.y - h;
-    if (refine >= 0){
-      if (d < 0.0) hi = tq; else lo = tq;
-      refine++;
-      if (refine == 6){ t = hi; hit = true; break; }
+  // One loop, one call site for surfaceH (Direct3D's compiler inlines every call): march;
+  // after the first step under the ground, bisect six times between the last two steps; then
+  // read the surface where the ray ends (ground or liquid); then, near the eye on land, the
+  // four neighbours for the fine-relief normal.
+  int refine = -1, phase = 0; float lo = 0.0, hi = 0.0;
+  bool onLiquid = false, sea = false;
+  float tt = 0.0, hitH = 0.0, hitTerr = 0.0, fdE = 0.0;
+  Hex hxHit; Sched scHit;   // the hexagon where the ray ends (paving, ice, albedos)
+  float fd[4]; fd[0] = 0.0; fd[1] = 0.0; fd[2] = 0.0; fd[3] = 0.0;
+  for (int i=0;i<416+uZero;i++){
+    if (phase == 0 && refine < 0 && i >= uSteps) phase = 1;
+    if (phase == 1){
+      onLiquid = (!hit || t > tLiquid) && tLiquid < 1e8;
+      if (!hit && !onLiquid) break;
+      tt = onLiquid ? tLiquid : t;
+    }
+    vec2 xz; float tq;
+    if (phase == 0){ tq = refine < 0 ? t : 0.5*(lo+hi); xz = (ro + rd*tq).xz; }
+    else { tq = tt; vec2 o = phase == 2 ? vec2(fdE, 0.0) : phase == 3 ? vec2(-fdE, 0.0) : phase == 4 ? vec2(0.0, fdE) : phase == 5 ? vec2(0.0, -fdE) : vec2(0.0); xz = (ro + rd*tt).xz + o; }
+    float tOnly;
+    float h = surfaceH(xz, tq, tOnly);
+    if (phase == 0){
+      terr = tOnly;
+      vec3 p = ro + rd*tq;
+      float d = p.y - (h - curvature(p.xz));
+      if (refine >= 0){
+        if (d < 0.0) hi = tq; else lo = tq;
+        refine++;
+        if (refine == 6){ t = hi; hit = true; phase = 1; }
+        continue;
+      }
+      if (d < 0.0){ lo = tPrev; hi = t; refine = 0; continue; }
+      if (t > tMax || (rd.y > 0.0 && p.y > 26000.0)){ phase = 1; continue; }
+      tPrev = t; dPrev = d;
+      t += max(d*0.45, 0.004*t + 0.15);
       continue;
     }
-    if (d < 0.0){ lo = tPrev; hi = t; refine = 0; continue; }
-    if (t > tMax) break;
-    if (rd.y > 0.0 && p.y > 26000.0) break;
-    tPrev = t; dPrev = d;
-    t += max(d*0.45, 0.004*t + 0.15);
+    if (phase == 1){
+      hitH = h; hitTerr = tOnly;
+#if defined(VENUS_MID)
+      vec2 pxz = (ro + rd*tt).xz;
+      sea = !onLiquid && (uIceOn > 0.5) && iceTopFrom(pxz, baseHeight(pxz)) >= hitTerr - 0.01;
+#elif !defined(VENUS_EARLY)
+      vec2 pxz = (ro + rd*tt).xz;
+      hxHit = hexInfo(pxz); scHit = hexSchedule(hxHit);
+      sea = !onLiquid && (uIceOn > 0.5) && iceTopHex(baseHeight(pxz), hxHit, scHit) >= hitTerr - 0.01;
+#endif
+      if (onLiquid || sea || tt >= 420.0) break;
+      fdE = max(0.04, tt*0.0025);
+      phase = 2; continue;
+    }
+    fd[phase - 2] = h;
+    if (phase == 5) break;
+    phase++;
   }
 
-  // The scene writes what the poster pass needs (material, light, air). Expensive functions are
-  // called from one place each (Direct3D's compiler inlines every call): the cloud layer is
-  // read once at the end, for the sky or for the sea's reflection, and the paving once.
+  // Expensive functions are called from one place each: the sky and the cloud layer are read
+  // once per ray at the end (the view, and the sea's reflection), and the paving once.
   float depthT;
-  vec3 posterSurf = vec3(0.0), posterAlb = vec3(1.0); float posterT = 0.0;
-  bool onLiquid = !hit || t > tLiquid;
-  onLiquid = onLiquid && tLiquid < 1e8;
   vec3 surfCol = vec3(0.0);
-  bool cloudQ = !hit && !onLiquid; vec3 cO = ro, cD = rd, skyS = vec3(0.0); float fresC = 0.0;
+  vec3 cO = ro, cD = rd; float fresC = 0.0;
 
   if (!hit && !onLiquid){
 #ifdef VENUS_DEBUG
@@ -987,18 +1033,12 @@ void main(){
 #endif
     depthT = uMaxT * 4.0;
   } else {
-    float tt = onLiquid ? tLiquid : t;
+    tt = onLiquid ? tLiquid : t;
     vec3 p = ro + rd*tt;
     depthT = tt;
-    float hitTerr; float hitH = surfaceH(p.xz, tt, hitTerr);
     float hFloor = hitH - curvature(p.xz);
-#ifdef VENUS_EARLY
-    bool sea = false;
-#else
-    bool sea = !onLiquid && (uIceOn > 0.5) && iceTop(p.xz) >= hitTerr - 0.01;
-#endif
     float seaSpec = 0.0, seaSheen = 0.0, seaSeam = 0.0; vec3 seaAlb = vec3(0.05, 0.045, 0.04);
-    if (sea || (onLiquid && uIceOn > 0.5)) seaAlb = seaAlbedo(onLiquid ? vec3(p.x, hFloor, p.z) : p, seaSpec, seaSheen, seaSeam);
+    if (sea || (onLiquid && uIceOn > 0.5)) seaAlb = seaAlbedo(onLiquid ? vec3(p.x, hFloor, p.z) : p, hxHit, scHit, seaSpec, seaSheen, seaSeam);
     if (onLiquid){
       // a clear liquid: CO2 (nearly colourless, IOR 1.2) or water over the paving
       bool water = uSeaLiquid < 0.5;
@@ -1016,8 +1056,7 @@ void main(){
       float cosI = max(dot(-rd, Nw), 0.0);
       float R0 = water ? 0.02 : 0.0083;
       float fres = R0 + (1.0 - R0)*pow(1.0 - cosI, 5.0);
-      vec3 reflCol = skyColor(refl, true) + uNightSky*1.5;   // its clouds are added below
-      cloudQ = true; cO = p + vec3(0.0, 0.5, 0.0); cD = refl; skyS = reflCol;
+      cO = p + vec3(0.0, 0.5, 0.0); cD = refl;   // the reflected sky is added below
       // what lies under: the floor seen through the liquid, dimmed with depth
       float depth = max(0.0, p.y - hFloor) / EXAG;
       vec3 absorb = water ? vec3(0.42, 0.075, 0.035) : vec3(0.004, 0.003, 0.002);
@@ -1032,7 +1071,7 @@ void main(){
         if (plates > 0.5) gAux = -1.0;
         fres *= 1.0 - plates*0.8;
       }
-      surfCol = mix(under, reflCol, fres); fresC = fres;
+      surfCol = under*(1.0 - fres); fresC = fres;   // + fres * the reflected sky, below
       gMat = gAux < -0.5 ? 9 : (water ? 13 : 12); gAux = fres;
       // the soletta's glitter path
       float gl = pow(max(dot(reflect(rd, Nw), uLightDir), 0.0), 600.0);
@@ -1043,14 +1082,9 @@ void main(){
       float fineFade = 1.0 - smoothstep(600.0, 4000.0, tt);
       if (sea) N = vec3(0.0, 1.0, 0.0);
       if (tt < 420.0 && !sea){
-        float e = max(0.04, tt*0.0025), dd;
-        float hxp = 0.0, hxm = 0.0, hzp = 0.0, hzm = 0.0;
-        for (int k=0;k<4+uZero;k++){
-          vec2 o = k == 0 ? vec2(e, 0.0) : k == 1 ? vec2(-e, 0.0) : k == 2 ? vec2(0.0, e) : vec2(0.0, -e);
-          float hk = surfaceH(p.xz + o, tt, dd);
-          if (k == 0) hxp = hk; else if (k == 1) hxm = hk; else if (k == 2) hzp = hk; else hzm = hk;
-        }
-        vec3 nn = normalize(vec3(-(hxp - hxm)/(2.0*e), 1.0, -(hzp - hzm)/(2.0*e)));
+        // the four neighbours were read in the march loop above
+        float e = fdE;
+        vec3 nn = normalize(vec3(-(fd[0] - fd[1])/(2.0*e), 1.0, -(fd[2] - fd[3])/(2.0*e)));
         N = normalize(mix(nn, N, smoothstep(250.0, 420.0, tt)));
       } else if (fineFade > 0.0 && !sea){
         float e = max(0.25, tt*0.0018);
@@ -1063,10 +1097,9 @@ void main(){
       float spec, sheen, workLight = 0.0, seamLight = 0.0; vec2 machine;
       vec3 alb;
       if (sea){ alb = seaAlb; spec = seaSpec; sheen = seaSheen; seamLight = seaSeam; machine = vec2(1e9); }
-      else { vec2 bump; alb = landAlbedo(p, N, cav, slope, spec, sheen, machine, workLight, bump); N = normalize(N - vec3(bump.x, 0.0, bump.y)); }
+      else { vec2 bump; alb = landAlbedo(p, N, cav, slope, hxHit, scHit, spec, sheen, machine, workLight, bump); N = normalize(N - vec3(bump.x, 0.0, bump.y)); }
       float ao = clamp(0.35 + cav*0.9, 0.0, 1.0);
       surfCol = lightSurface(p, N, alb, spec, sheen, ao, true);
-      posterAlb = alb;
 #ifdef VENUS_DEBUG
       if (uDebug > 5.5){ outColor = vec4(uDebug > 6.5 ? N*0.5 + 0.5 : alb*4.0, 1.0); gl_FragDepth = 0.5; return; }
 #endif
@@ -1099,29 +1132,34 @@ void main(){
       gl_FragDepth = 0.5; return;
     }
 #endif
-    // air between us and the surface
-    vec3 tau = tauSegment(ro, rd, tt) * uAirK;
-    posterT = exp(-tau.g);
   }
-  // the cloud layer, once: across the sky, or reflected in the sea
-  vec4 cl = vec4(0.0);
-  if (cloudQ) cl = cloudLayer(cO, cD, 1e9);
-  if (onLiquid) surfCol += fresC*0.55*(cl.rgb - cl.a*skyS);
-  posterSurf = surfCol;
-
-  {
-    // the poster pass reads: material, light (display units), air transmittance, detail
-    float lightLv = 0.0, trans = 0.0;
-    if (hit || onLiquid){
-      lightLv = luma(posterSurf) / max(luma(posterAlb), 1e-4) * uExposure;
-      if (gMat >= 12 && gMat <= 13) lightLv = luma(posterSurf) * uExposure * 4.0;
-      trans = posterT;
-    } else {
-      gMat = 0; gAux = 0.0;
-      if (cl.a > 0.4){ gMat = 29; lightLv = luma(cl.rgb/cl.a) * uExposure; trans = 1.0; }
+  // The sky and the cloud layer, each from one call site: k = 0 the sea's reflection (only on
+  // the liquid), k = 1 the view ray (the sky only where no ground is hit; the clouds always,
+  // up to the surface).
+  bool open = !hit && !onLiquid;
+  vec3 skyR = vec3(0.0), skyV = vec3(0.0); vec4 clR = vec4(0.0), clV = vec4(0.0);
+  for (int k = 0; k < 2 + uZero; k++){
+    if (k == 0 && !onLiquid) continue;
+    vec3 o = k == 0 ? cO : ro, d = k == 0 ? cD : rd;
+    vec3 sk = (k == 0 || open) ? skyColor(d, true) : vec3(0.0);
+    vec4 c = cloudLayer(o, d, (k == 1 && !open) ? tt : 1e9);
+    if (k == 0){ skyR = sk; clR = c; } else { skyV = sk; clV = c; }
+  }
+  vec3 col;
+  if (open) col = skyV*(1.0 - clV.a) + clV.rgb;
+  else {
+    if (onLiquid){
+      // a rough sea reflects a blurred, higher piece of sky, and its clouds
+      vec3 reflCol = (skyR + uNightSky*1.5)*(1.0 - clR.a*0.55) + clR.rgb*0.55;
+      surfCol += reflCol*fresC;
     }
-    outColor = vec4(float(gMat), lightLv, trans, gAux);
+    // aerial perspective, then the clouds in front
+    vec3 T = exp(-tauSegment(ro, rd, tt) * uAirK);
+    vec3 fogCol = skyScatter(normalize(vec3(rd.x, max(rd.y, 0.02), rd.z)), trueAlt(ro.y));
+    col = surfCol * T + fogCol * (1.0 - T);
+    col = col*(1.0 - clV.a) + clV.rgb;
   }
+  outColor = vec4(col * uExposure, 1.0);
   // log depth so objects can be drawn into the same depth buffer
   float viewZ = depthT * dot(rd, uFwd);
   gl_FragDepth = clamp(log2(1.0 + viewZ) * uLogK, 0.0, 1.0);
@@ -1168,6 +1206,7 @@ void main(){
   if (!gl_FrontFacing) N = -N;
   float kind = vKind;
   vec3 alb = vCol.rgb; float spec = 0.04, sheen = 0.0, ao = 1.0; vec3 emit = vec3(0.0);
+  vec3 tentCol = vec3(0.0); float alpha = -1.0;   // tents: their own colour and coverage
   float n1 = fbm(p.xz/3.0 + vLocal.y*2.0 + vCol.a*31.0, 3);
   if (kind < 0.5){
     // rock: dark basalt, flaggy faces, the years written on its surface
@@ -1267,42 +1306,12 @@ void main(){
     float rib = smoothstep(0.03, 0.0, abs(fract(atan(vLocal.z, vLocal.x)/PI*3.0) - 0.5) - 0.47);
     vec3 c = refl*fr + milk*0.12 + glow + vec3(0.1)*rib*luma(uLightCol + uSkyAmb);
     float a = clamp(fr*0.8 + 0.05 + rib*0.25, 0.0, 1.0) * vGrow;
-    if (uPoster > 0.5){
-      if (rib < 0.5) discard;
-      outColor = vec4(25.0, 1.0, 1.0, 0.0);
-      gl_FragDepth = clamp(log2(1.0 + max(vViewZ, 0.0)) * uLogK, 0.0, 1.0);
-      return;
-    }
-    c = airPerspective(c, p);
-    outColor = vec4(c * uExposure * a, a);
-    gl_FragDepth = clamp(log2(1.0 + max(vViewZ, 0.0)) * uLogK, 0.0, 1.0);
-    return;
+    tentCol = c; alpha = a;
   }
-  vec3 col = lightSurface(p, N, alb, spec, sheen, ao, kind < 0.5 || kind > 5.5 && kind < 12.5) + emit;
-  if (uPoster > 0.5){
-    int m = 14;
-    if (kind < 0.5){ m = 14; if (uYear > vCol.g) m = 3; if (uYear > vCol.b) m = 4; if (luma(alb) > 0.5) m = 2; }
-    else if (kind < 1.5) m = vLocal.y < 0.2 ? 16 : 15;
-    else if (kind < 3.5) m = 17;
-    else if (kind < 4.5) m = 28;
-    else if (kind < 6.5) m = 20;
-    else if (kind < 7.5) m = 21;
-    else if (kind < 9.5) m = 22;
-    else if (kind < 10.5) m = luma(vCol.rgb) > 0.3 ? 26 : 23;
-    else if (kind < 13.5) m = 27;
-    else if (kind < 14.5) m = 18;
-    else if (kind < 15.5) m = 10;
-    else if (kind < 16.5) m = 19;
-    else m = 24;
-    float lv = luma(lightSurface(p, N, vec3(1.0), 0.0, 0.0, ao, kind < 0.5 || kind > 5.5 && kind < 12.5) + emit*4.0) * uExposure;
-    vec3 ro = uCam; vec3 d = p - ro; float t = length(d);
-    float tr = exp(-dot(tauSegment(ro, d/t, t) * uAirK, vec3(0.0, 1.0, 0.0)));
-    outColor = vec4(float(m), lv, tr, 0.0);
-    gl_FragDepth = clamp(log2(1.0 + max(vViewZ, 0.0)) * uLogK, 0.0, 1.0);
-    return;
-  }
+  // (one call site each for lighting and the air: Direct3D's compiler inlines every call)
+  vec3 col = alpha < 0.0 ? lightSurface(p, N, alb, spec, sheen, ao, kind < 0.5 || kind > 5.5 && kind < 12.5) + emit : tentCol;
   col = airPerspective(col, p);
-  outColor = vec4(col * uExposure, 1.0);
+  outColor = alpha < 0.0 ? vec4(col * uExposure, 1.0) : vec4(col * uExposure * alpha, alpha);
   gl_FragDepth = clamp(log2(1.0 + max(vViewZ, 0.0)) * uLogK, 0.0, 1.0);
 }`;
 
@@ -1345,11 +1354,13 @@ void main(){
 export const LIGHT_FS = () => `#version 300 es
 precision highp float;
 in vec3 vCol; in float vSize;
+uniform float uExposure;
 out vec4 o;
 void main(){
-  // a lamp, as the poster prints it: a small solid dot (material 26)
   vec2 q = gl_PointCoord*2.0 - 1.0;
   float r = dot(q, q);
-  if (r > 0.35 || dot(vCol, vec3(1.0)) < 1e-5) discard;
-  o = vec4(26.0, 1.0, 1.0, 0.0);
+  if (r > 1.0) discard;
+  float core = exp(-r*7.0), halo = exp(-r*2.2)*0.35;
+  if (vSize > 20.0) { core = exp(-r*3.0)*0.4; halo = exp(-r*1.2)*0.6; }
+  o = vec4(vCol * (core + halo) * uExposure, 1.0);
 }`;

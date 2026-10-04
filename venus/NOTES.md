@@ -47,29 +47,38 @@ engineering sketch; nothing here claims feasibility.
 - Today's air is drawn about fifteen times clearer than it is, so the bay shows; really
   you would see a few kilometres.
 - The century-long night is lit as if by moonlight so the land reads.
-- The shade's size and position in the sky are exaggerated in the poster look.
 
 ## The look
 
-- **Poster** (the only look since October 2026; the painting is in git history): the world
-  printed as a 1920s constructivist lithograph in four inks — scarlet, black, gold, slate on
-  cream — after the collection's Venus poster. The renderer writes material, light and air
-  transmittance per pixel; `js/poster.js` picks inks by material and light, lets distance
-  fall away in flat halftone planes, draws the shade as a black trussed disc with red and
-  gold rays, and prints each plate slightly out of register with grain and voids.
+- **Painting** (the only look): realist light and atmosphere, repainted with an anisotropic
+  Kuwahara filter and oriented brush strokes on a gessoed board (Bonestell lineage). A
+  four-ink poster look existed briefly in October 2026; it is in git history.
+- The dark centuries under the shade are lit as if by moonlight (`MOON`, `NIGHT_EXPOSURE` in
+  `js/world.js`), a little brighter and less blue since October 2026, with thinner night air
+  and less dimming from the acid deck, so the rain, sea and snow years read clearly. Today's
+  orange air is drawn a little clearer too.
 
 ## Speed on Windows
 
 Chrome and Edge on Windows compile WebGL shaders with Direct3D's compiler, which inlines every
-function call. The scene shader is written so its expensive functions have one call site each
-(the cloud layer, the sea's paving), loop bounds use `uZero` (an always-zero uniform) so the
-compiler can't unroll them, the debug views are compiled only with `?debug=`, and the poster is
-a compile-time constant so the colour-only paths drop out. Shaders compile in the background
-(`settle()` in `js/gl.js`, KHR_parallel_shader_compile) and the page never asks for a status
-early. The first years (before the CO2 rains) open with a smaller build of the scene (no seas,
-ice, paving or soil) that compiles in about 2 s; the full build compiles behind it and takes
-over when ready. Measured in real Chrome on an RTX 4090: Begin to the first frame in about
-2.5 s, the full scene ready about 14 s after Begin.
+function call, so the scene shader is written so its expensive functions have one call site each:
+one loop marches the terrain, reads the surface where the ray ends and the four neighbours for
+the fine normal (one copy of `surfaceH`); the sky and the cloud layer are read once per ray (the
+view and the sea's reflection); the cloud densities in one loop; the hit point's hexagon is found
+once and shared by the ice, the paving and the land; the objects shader lights and fogs once.
+Loop bounds use `uZero` (an always-zero uniform) so the compiler can't unroll them, and the debug
+views are compiled only with `?debug=`. Programs compile in the background (`settle()` and
+`isReady()` in `js/gl.js`, KHR_parallel_shader_compile); the page never asks for a status early.
+
+The scene comes in three tiers (`SCENE_FS(debug, tier)`): EARLY (before the CO2 rains: no seas,
+ice, cloud layer, paving or soil), MID (seas, freezing and snow, before the paving), FULL. The
+tier for the opening year compiles first; the others compile behind it, and a more complete one
+takes over on a still frame. Jumping ahead before a tier is ready holds the frame with a note.
+
+Measured in real Chrome on Windows (RTX 4090, 2560×1440), first visit (cold shader cache): Begin
+to the first picture 2.4–2.9 s; the middle years ready about 7 s after Begin, all years about 13 s;
+60 fps while dragging. Repeat visits (Chrome keeps compiled shaders): first picture 0.6 s, all
+years 0.9 s. Six cold and six warm reloads in a row: no lost context, no GPU-process crash.
 
 ## Files
 
@@ -79,7 +88,7 @@ over when ready. Measured in real Chrome on an RTX 4090: Begin to the first fram
 - `js/terrain.js`, `js/plan.js`, `js/timeline.js`, `js/world.js` — heights, the hexagon
   plan, the years, light and air.
 - `js/objects.js`, `js/dynamic.js`, `js/meshes.js` — rocks, life, machines, colony.
-- `js/poster.js` — the print. `js/orbit.js` — Venus from space.
-- `js/ui.js`, `js/gl.js`, `js/noise.js`.
+- `js/paint.js` — the painting. `js/orbit.js` — Venus from space.
+- `js/weather.js`, `js/ui.js`, `js/gl.js`, `js/noise.js`.
 
 URL hooks for captures: `?enter=1&year=&hour=&view=0|1|2&mode=orbit|fly&preset=shade&shot=1&noui=1&quality=high`.

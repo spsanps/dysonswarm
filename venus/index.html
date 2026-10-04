@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#24180f">
 <title>Terraforming Venus</title>
-<meta name="description" content="Terraform Venus yourself: put up a sunshade, freeze the air out as carbon dioxide rain and snow, pave over the ice, lay soil, bring water. Printed live in your browser as a four-ink poster.">
+<meta name="description" content="Terraform Venus yourself: put up a sunshade, freeze the air out as carbon dioxide rain and snow, pave over the ice, lay soil, bring water. Painted live in your browser.">
 <meta name="author" content="San Kala">
 <link rel="canonical" href="https://dysonswarm.com/venus/">
 <link rel="icon" type="image/svg+xml" href="./images/favicon.svg">
@@ -14,12 +14,12 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Dyson Swarm">
 <meta property="og:title" content="Terraforming Venus">
-<meta property="og:description" content="Shade Venus from the Sun, freeze its air, pave over the ice and build a world on top. Printed live in your browser as a four-ink poster.">
+<meta property="og:description" content="Shade Venus from the Sun, freeze its air, pave over the ice and build a world on top. Painted live in your browser.">
 <meta property="og:url" content="https://dysonswarm.com/venus/">
 <meta property="og:image" content="https://dysonswarm.com/venus/images/social-preview.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="A four-ink poster view from a headland on Venus over a bay of hexagonal islands, two hundred years after terraforming began.">
+<meta property="og:image:alt" content="A painted view from a headland on Venus over a bay of hexagonal islands, two hundred years after terraforming began.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Terraforming Venus">
 <meta name="twitter:description" content="Shade Venus from the Sun, freeze its air, pave over the ice and build a world on top.">
@@ -43,13 +43,13 @@
       <button id="enter" class="primary" type="button">Begin <span aria-hidden="true">↗</span></button>
       <button id="introNotes" class="quiet" type="button">How it works</button>
     </div>
-    <p class="small">Printed live in your browser, as a 1920s poster in four inks. About 250 KB loads when you enter, and 190 KB more if you go to orbit. Needs WebGL2; a desktop with a graphics card looks best.</p>
+    <p class="small">Painted live in your browser. About 250 KB loads when you enter, and 190 KB more if you go to orbit. Needs WebGL2; a desktop with a graphics card looks best.</p>
     <p class="small links"><a href="/">Dyson Swarm</a> · <a href="https://sankala.me">San Kala</a> · <a href="https://www.youtube.com/@paperrobotsfilms">Paper Robots</a></p>
   </div>
 </section>
 
 <div id="fade" class="fade" aria-hidden="true"></div>
-<canvas id="world" tabindex="0" aria-label="A poster view from a headland on Venus. Drag to look around; the timeline below changes the year."></canvas>
+<canvas id="world" tabindex="0" aria-label="A painted view from a headland on Venus. Drag to look around; the timeline below changes the year."></canvas>
 
 <div id="ui" class="ui" hidden>
   <header class="top">
@@ -139,8 +139,8 @@
     <h3>What you do</h3>
     <p>Each stage has one button. Some just let the years pass. Two are work: lay the paving and spread the soil by hand, one hexagon at a time (each is 1.2 km across), before the colonies’ machines take over. Fly over the plains with F, or go up to orbit to see the shade between Venus and the Sun and the whole planet change.</p>
     <h3>What is real here</h3>
-    <p>The land is real at large scale: NASA’s Magellan radar altimetry of Ishtar Terra (4.6 km per pixel, public domain), around 61.6° N, 5° W, south-west of Maxwell Montes. The bay below you is where Magellan’s lowlands are, and the CO2 sea level comes from Magellan’s global elevations. Heights are drawn 1.8 times taller than they are, as space artists always did. The headland, the rocks, the hexagons and everything smaller are invented. The globe in orbit uses the same Magellan data.</p>
-    <p>The air is a rough model: scattering grows with how much gas is above you, so the sky turns blue only once the carbon dioxide is gone. The CO2 condenses along its real vapour-pressure curve. Two things are drawn, not measured. Today’s air is drawn about fifteen times clearer than it is; really you would see only a few kilometres into the orange. And the long night is lit as if by moonlight so you can see; Venus has no moon, and under the shade it would be close to black.</p>
+    <p>The land is real at large scale: NASA’s Magellan radar altimetry of Ishtar Terra (4.6 km per pixel, public domain), around 61.6° N, 5° W, south-west of Maxwell Montes. The bay below you is where Magellan’s lowlands are, and the CO2 sea level comes from Magellan’s global elevations. Heights are drawn 1.8 times taller than they are, as space painters always did. The headland, the rocks, the hexagons and everything smaller are invented. The globe in orbit uses the same Magellan data.</p>
+    <p>The air is a rough model: scattering grows with how much gas is above you, so the sky turns blue only once the carbon dioxide is gone. The CO2 condenses along its real vapour-pressure curve. Two things are painted, not measured. Today’s air is drawn about fifteen times clearer than it is; really you would see only a few kilometres into the orange. And the long night is lit as if by moonlight so you can see; Venus has no moon, and under the shade it would be close to black.</p>
     <h3>What is imagined</h3>
     <p>All of it as a plan. Birch’s paper is an engineering sketch, not a validated design, and nobody has checked how fast any of this could go. His paper also has heat pipes to cool the deep air, floating colonies at the one-bar level lit by their own small mirrors, and floaters that build the cover disks; they are all here, though their look is invented. Covering the land with plastic sheet and then soil is my addition to his plan. The town, the farms, the colony’s shape and the timing of the land stages are invented too.</p>
     <h3>Controls</h3>
@@ -162,7 +162,7 @@
       <li>NASA/JPL/USGS, Magellan global topography, 4641 m per pixel (<a href="https://astrogeology.usgs.gov/search/map/venus_magellan_global_topography_4641m">USGS Astrogeology</a>).</li>
       <li>CO2 phase data: triple point 216.6 K and 5.18 bar; critical point 304.1 K and 73.8 bar.</li>
       <li>Venera 13 and 14 panoramas (1982), for the platy basalt at your feet.</li>
-      <li>Soviet constructivist posters and lithographs of the 1920s, for the four inks it is printed in.</li>
+      <li>Chesley Bonestell’s space paintings, for the way of painting it.</li>
     </ul>
     <p class="small">An experiment by <a href="https://sankala.me">San Kala</a>. No ads, nothing for sale. <a href="https://github.com/spsanps/dysonswarm/tree/main/venus">Source code</a> · <a href="/">More space interactives</a> · <a href="https://www.youtube.com/@paperrobotsfilms">Paper Robots</a></p>
   </div>

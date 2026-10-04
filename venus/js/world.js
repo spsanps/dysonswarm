@@ -78,6 +78,10 @@ function airmass(mu) {
 // Three regimes blend: Venus's own orange daylight (today, fading under the shade),
 // the soletta's 24-hour sun (after year 206), and night (the dark centuries, and
 // soletta nights), which is painted as dim blue light so the land still reads.
+// The dark centuries' moonlight: a little less blue and a little brighter than it was, so the
+// shade, rain, seas and snow years read clearly (October 2026; was [0.50, 0.60, 0.95] at 0.55).
+const MOON = [0.58, 0.64, 0.90];
+const NIGHT_EXPOSURE = 0.85;
 export function lighting(st, hour, camAltTrue) {
   const L = {};
   const venusDay = st.soletta < 0.5;
@@ -125,8 +129,8 @@ export function lighting(st, hour, camAltTrue) {
   const dayLum = lum(L.lightCol) * Math.max(mu, 0) + lum(L.skyAmb) + lum(L.diffuse) * 2;
   const night = 1 - clamp(dayLum / 0.004, 0, 1);
   L.night = night;
-  const clear = 1 - st.cloudDeck * 0.55;
-  L.nightAmb = scale([0.50, 0.60, 0.95], 0.0055 * night * clear);
+  const clear = 1 - st.cloudDeck * 0.25;   // the acid deck dims the night less than it did (0.55), so the rain years read
+  L.nightAmb = scale(MOON, 0.0055 * night * clear);
   L.nightSky = scale([0.16, 0.20, 0.36], 0.0062 * night * (1 - st.cloudDeck * 0.6));
   L.colonyLight = 0;
   L.starVis = (1 - st.cloudDeck) * night;
@@ -139,7 +143,7 @@ export function lighting(st, hour, camAltTrue) {
   const Enight = lum(L.nightAmb);
   // Night is drawn as if by moonlight, so the land reads (there is no moon; it would
   // be close to black). The air is thinned for the eye at night for the same reason.
-  const exNight = 0.55 / Math.pow(lum([0.5, 0.6, 0.95]) * 0.0055 + 1e-6, 0.82);
+  const exNight = NIGHT_EXPOSURE / Math.pow(lum(MOON) * 0.0055 + 1e-6, 0.82);
   let ex;
   if (venusDay) {
     const fullToday = lum([1.0, 0.52, 0.19]) * 0.020 * 2.2 + lum([1.0, 0.56, 0.24]) * 0.048 * 0.5;
@@ -150,9 +154,9 @@ export function lighting(st, hour, camAltTrue) {
     const exD = 1.6 / Math.pow(Eday + Etoday + 1e-6, 0.82);
     ex = lerp(Math.min(exD, exNight), exNight, night);
   }
-  L.airK = lerp(1, 0.05, night * smoothstep(0.3, 2.0, st.tauR));
+  L.airK = lerp(1, 0.02, night * smoothstep(0.3, 2.0, st.tauR));   // was 0.05: thinner at night so the land reads
   // Venus today, painted a little clearer than it is so the land below shows
-  if (venusDay && st.cloudDeck > 0.5) L.airK *= lerp(1, 0.06, 1 - night);
+  if (venusDay && st.cloudDeck > 0.5) L.airK *= lerp(1, 0.035, 1 - night);   // was 0.06
   L.exposure = clamp(ex, 1, 900);
   return L;
 }

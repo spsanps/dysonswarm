@@ -36,7 +36,7 @@ $('introNotes').addEventListener('click', () => openSheet('notes'));
 
 function fail(msg) {
   $('boot').hidden = false;
-  $('bootText').textContent = 'The poster could not be printed.';
+  $('bootText').textContent = 'The painting could not start.';
   $('bootFail').hidden = false;
   $('bootFail').textContent = msg;
   window.__ready = true;

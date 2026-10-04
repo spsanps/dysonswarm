@@ -1,4 +1,4 @@
-// The interface around the poster: the years, the hour, places, notes, photo.
+// The interface around the painting: the years, the hour, places, notes, photo.
 
 import { STAGES, STORY, YEAR_MAX, CAPTIONS, SCHEDULE as S, stateAt, yearToStory, storyToYear, actionAt } from './timeline.js';
 import { VIEWS } from './world.js';
@@ -142,7 +142,7 @@ export function bindUI(app, { openSheet, closeSheets, showUI = true }) {
   app.on(kind => {
     if (kind !== 'preparing') return;
     const t = $('toast'); clearTimeout(toastT);
-    if (app.waiting) { t.textContent = 'Mixing the inks for the later years… a few seconds, only on the first visit.'; t.classList.add('show'); }
+    if (app.waiting) { t.textContent = 'Mixing the paints for the later years… a few seconds, only on the first visit.'; t.classList.add('show'); }
     else t.classList.remove('show');
   });
 

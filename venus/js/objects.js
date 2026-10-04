@@ -213,8 +213,8 @@ export class Objects {
     let unit = 0;
     for (const k in textures) bindTex(gl, p, k, textures[k], unit++);   // rebind: the weather pass used unit 0
     setUniforms(gl, p, { ...uniforms, uTransparent: 1 });
-    if (uniforms.uPoster > 0.5) gl.disable(gl.BLEND); else { gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); }
-    gl.depthMask(uniforms.uPoster > 0.5); gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL);
+    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.depthMask(false); gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL);
     drawMesh(gl, this.batches.tent);
     gl.depthMask(true); gl.disable(gl.BLEND);
     setUniforms(gl, p, { uTransparent: 0 });

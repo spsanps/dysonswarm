@@ -273,7 +273,7 @@ export class Dynamic {
     if (!this.lightCount) return;
     gl.useProgram(p);
     setUniforms(gl, p, { ...U, uPxPerRad: pxPerRad });
-    if (U.uPoster > 0.5) gl.disable(gl.BLEND); else { gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE); }
+    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
     gl.depthMask(false); gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL);
     gl.bindVertexArray(this.lightVAO);
     gl.drawArrays(gl.POINTS, 0, this.lightCount);

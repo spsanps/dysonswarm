@@ -2,7 +2,7 @@
 
 import { createContext, program, settle, isReady, setUniforms, texture, target, freeTarget, FULLSCREEN_VS, bindTex } from './gl.js';
 import * as T from './terrain.js';
-import { COMMON, BAKE_FS, SCENE_FS, EARLY_UNTIL } from './glsl.js';
+import { COMMON, BAKE_FS, SCENE_FS, TIER_UNTIL } from './glsl.js';
 import { stateAt, stageAt, STAGES, YEAR_MAX, SCHEDULE, yearToStory, storyToYear, actionAt } from './timeline.js';
 import { hexInfo, hexCenter } from './plan.js';
 import { VIEWS, cameraFor, viewStart, buildCamera, lighting } from './world.js';
@@ -10,7 +10,8 @@ import { clamp, lerp } from './noise.js';
 import { Objects } from './objects.js';
 import { Dynamic } from './dynamic.js';
 import { Orbit } from './orbit.js';
-import { Poster } from './poster.js';
+import { Painter, DEFAULT_LOOK } from './paint.js';
+import { Weather } from './weather.js';
 
 export class VenusApp {
   constructor(canvas, opts = {}) {
@@ -233,14 +234,13 @@ export class VenusApp {
   async init(progress = () => {}) {
     const gl = this.gl = createContext(this.canvas);
     if (!gl) throw new Error('NO_WEBGL2');
-    // The scene shader starts compiling first; it takes longest on Windows. Opening in the
-    // first years, a smaller build (no seas, ice, paving or soil yet) is enough and compiles
-    // in a few seconds; the full one compiles in the background once the view is up.
-    const early = this.year < EARLY_UNTIL && !this.opts.debug;
-    this.programs = {
-      scene: program(gl, FULLSCREEN_VS, SCENE_FS(!!this.opts.debug, early), early ? 'scene (first years)' : 'scene'),
-    };
-    this.fullScene = early ? null : this.programs.scene;
+    // The scene shader starts compiling first; it takes longest on Windows. It comes in three
+    // tiers (see SCENE_FS): the one for the opening year compiles first and is all the first
+    // view needs; the later ones compile in the background once the view is up.
+    const tier0 = this.opts.debug ? 2 : TIER_UNTIL.findIndex(u => this.year < u);
+    this.tiers = [null, null, null];
+    this.tiers[tier0] = program(gl, FULLSCREEN_VS, SCENE_FS(!!this.opts.debug, tier0), 'scene (tier ' + tier0 + ')');
+    this.programs = { scene: this.tiers[tier0] };
     progress('Reading the radar map', 5);
     await T.loadMagellan(new URL('../data/ishtar-magellan.png', import.meta.url));
     progress('Raising the mountains', 15);
@@ -252,13 +252,14 @@ export class VenusApp {
     this.objects = new Objects(gl);
     this.dynamic = new Dynamic(gl);
     this.orbit = new Orbit(gl);
-    this.poster = new Poster(gl);
-    this.style = 'poster';   // the only look (the painting is in git history)
+    this.painter = new Painter(gl);
+    this.weather = new Weather(gl);
+    this.style = 'paint';   // the only look (the poster is in git history)
     // wait for every shader without freezing the page
     const t0 = performance.now();
     await settle(gl, null, (done, total) => {
       const s = (performance.now() - t0) / 1000;
-      progress(s < 6 ? 'Mixing the inks' : `Mixing the inks · ${Math.round(s)} s · the first visit takes longest`, 85 + 14 * (1 - Math.exp(-s / 40)) * (0.3 + 0.7 * done / Math.max(1, total)));
+      progress(s < 6 ? 'Mixing the paints' : `Mixing the paints · ${Math.round(s)} s · the first visit takes longest`, 85 + 14 * (1 - Math.exp(-s / 40)) * (0.3 + 0.7 * done / Math.max(1, total)));
     });
     // hexagons worked by hand (see glsl.js userHex)
     const h0 = hexInfo(0, 0);
@@ -269,7 +270,9 @@ export class VenusApp {
     this.clock0 = performance.now();
     this.resize();
     this.placeView();
-    if (!this.fullScene) this.fullScene = program(gl, FULLSCREEN_VS, SCENE_FS(false, false), 'scene');
+    // the next tier compiles first (the stages a visitor reaches next), then the last
+    this.tier0 = tier0;
+    this.queueTiers();
     progress('Ready', 100);
   }
 
@@ -351,7 +354,7 @@ export class VenusApp {
     const w = Math.max(1, Math.round(this.canvas.clientWidth * dpr));
     const h = Math.max(1, Math.round(this.canvas.clientHeight * dpr));
     if (this.canvas.width !== w || this.canvas.height !== h) { this.canvas.width = w; this.canvas.height = h; }
-    // the scene (materials and light) is rendered below screen resolution; the print is full size
+    // the scene is rendered below screen resolution and painted up; the brush hides it
     const base = this.quality === 'high' ? 1 : this.quality === 'low' ? 0.42 : 0.62;
     const s = Math.min(base * this.renderScale, 1400 / Math.max(w, h) * 1.3);
     const rw = Math.max(1, Math.round(w * s)), rh = Math.max(1, Math.round(h * s));
@@ -385,15 +388,27 @@ export class VenusApp {
 
   // the scene build for this frame: the full one once compiled; before that the first-years
   // build, which is only right before the CO2 rains (null: wait for the full one)
-  // The first frame drawn with a new build makes the graphics driver finish compiling it, a
-  // stall of a few hundred milliseconds: switch to the full build on a still frame if we can.
-  sceneProgram() {
-    const full = isReady(this.gl, this.fullScene);
-    const early = this.year < EARLY_UNTIL;
-    if (full && (this.fullInUse || !early || !(this.dirty || this.playing))) { this.fullInUse = true; return this.fullScene; }
-    return early ? this.programs.scene : null;
+  // Start compiling the later tiers (together: that finishes them all soonest).
+  queueTiers() {
+    for (let t = this.tier0 + 1; t <= 2; t++) if (!this.tiers[t]) this.tiers[t] = program(this.gl, FULLSCREEN_VS, SCENE_FS(false, t), 'scene (tier ' + t + ')');
   }
-  get preparing() { return !isReady(this.gl, this.fullScene) && this.year >= EARLY_UNTIL; }
+  // The scene build for this frame: the most complete one that has compiled and covers this
+  // year (null: wait). The first frame drawn with a new build makes the graphics driver finish
+  // compiling it, a stall of a few hundred milliseconds, so a better build takes over on a
+  // still frame when the current one is still good for this year.
+  sceneProgram() {
+    const ok = t => this.tiers[t] && this.year < TIER_UNTIL[t] && isReady(this.gl, this.tiers[t]);
+    let best = -1;
+    for (let t = 2; t >= 0; t--) if (ok(t)) { best = t; break; }
+    if (best < 0) return null;
+    const cur = this.tierInUse;
+    if (cur !== undefined && best > cur && ok(cur) && (this.dirty || this.playing)) return this.tiers[cur];
+    this.tierInUse = best;
+    return this.tiers[best];
+  }
+  get preparing() { return !this.sceneProgram(); }
+  isReadyTier(t) { return !!this.tiers[t] && isReady(this.gl, this.tiers[t]); }
+  get allCompiled() { return this.tiers.every((p, t) => t <= this.tier0 ? !p || isReady(this.gl, p) : p && isReady(this.gl, p)); }
 
   render() {
     if (this.mode === 'orbit' && this.orbit.ready) return this.renderOrbit();
@@ -431,7 +446,7 @@ export class VenusApp {
       uSkyAmb: L.skyAmb, uGroundAmb: L.groundAmb, uNightAmb: L.nightAmb, uNightSky: L.nightSky, uDiffuse: L.diffuse,
       uBetaR: L.betaR, uBetaM: L.betaM, uHR: L.HR, uHM: L.HM, uMieG: L.mieG, uSkyLight: L.skyLight, uSkyBoost: 1.25, uAirK: L.airK,
       uFlash: flash.col, uFlashDir: flash.dir, uColonyPos: [-60000, 40000, -30000], uColonyLight: L.colonyLight,
-      uCloud: this.cloudParams(st), uExposure: L.exposure, uPoster: 1, uDebug: this.opts.debug || 0, uDebugR: this.opts.debugR || 10000, uNoShadow: this.opts.noshadow ? 1 : 0,
+      uCloud: this.cloudParams(st), uExposure: L.exposure, uDebug: this.opts.debug || 0, uDebugR: this.opts.debugR || 10000, uNoShadow: this.opts.noshadow ? 1 : 0,
       uVP: this.viewProj(cam, tx, ty),
     };
     this.U = U;
@@ -458,27 +473,38 @@ export class VenusApp {
     // 2. objects into the same colour and depth
     if (!this.opts.debug || this.opts.debug > 5.5) {
       this.objects.draw({ machines }, U, TX, () => this.dynamic.drawSolid());
-      // then the transparent things and the lights on top (the poster draws rain and snow itself)
+      // rain, snow and lightning, then the lights on top
+      const lum = c => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+      const amb = [0, 1, 2].map(i => (L.skyAmb[i] + L.nightAmb[i] * 2.5 + L.diffuse[i] * 2 + L.lightCol[i] * 0.3) * L.exposure);
+      const rainKind = st.acidRain > 0.01 ? 0 : st.co2Rain > 0.01 ? 1 : 2;
+      this.weather.draw(rt, {
+        uLogK: U.uLogK, uTime: this.time,
+        uRain: Math.max(st.acidRain, st.co2Rain, st.waterRain) * this.shower(), uSnow: st.snowFall, uRainKind: rainKind,
+        uLight: amb, uFlash: lum(flash.col) * L.exposure, uBolt: flash.bolt, uBoltSeed: flash.boltOn ? flash.seed + 1 : 0,
+      });
       gl.bindFramebuffer(gl.FRAMEBUFFER, rt.fb);
       gl.viewport(0, 0, rt.w, rt.h);
       this.objects.drawTransparent(U, TX);
       this.dynamic.drawLights(U, rt.h / (2 * Math.atan(ty)));
     }
     mark('objects');
-    // 3. print
-    this.renderPoster(rt, cam, st, L, 0);
-    mark('print');
+    // 3. paint
+    this.painter.render(rt, this.canvas.width, this.canvas.height, this.paintLook(rt));
+    mark('paint');
     if (prof) this.lastProf = prof.slice(1).map((p, i) => p[0] + ' ' + (p[1] - prof[i][1]).toFixed(1)).join(', ');
   }
 
-  renderPoster(rt, cam, st, L, mode) {
-    const regime = st.soletta > 0.5 ? (L.night > 0.6 ? 1 : 2) : (st.shade > 0.55 ? 1 : 0);
-    this.poster.render(rt, this.canvas.width, this.canvas.height, {
-      uScale: Math.min(window.devicePixelRatio || 1, 2), uFwd: cam ? cam.fwd : [0, 0, -1], uRight: cam ? cam.right : [1, 0, 0], uUp: cam ? cam.up : [0, 1, 0],
-      uTan: this.tan, uSunDir: L.sunDir, uSolDir: L.lightDir, uRegime: regime, uNight: L.night,
-      uShade: st.shade, uSoletta: st.soletta, uCloudDeck: st.cloudDeck, uAcidRain: st.acidRain, uCo2Rain: st.co2Rain * this.shower(),
-      uSnowFall: st.snowFall, uWaterRain: st.waterRain * this.shower(), uTime: this.time, uYear: this.year, uMode: mode,
-    });
+  // The brush costs most on small GPUs: fewer samples at lower quality.
+  qualityLook() {
+    if (this.quality === 'high') return { radius: 5, stride: 1 };
+    if (this.quality === 'low') return { radius: 0, stroke: 8 };
+    return { radius: 4, stride: 1.6 };
+  }
+  paintLook(rt) {
+    const look = { ...DEFAULT_LOOK, ...this.qualityLook(), ...(this.lookOverride || {}) };
+    if (this.opts.raw) look.radius = 0, look.grain = 0, look.impasto = 0, look.weave = 0, look.vignette = 0, look.carry = 0, look.fineMix = 0;
+    look.boardScale = Math.min(window.devicePixelRatio || 1, 2) * (rt.w / this.canvas.width);
+    return look;
   }
 
   renderOrbit() {
@@ -490,7 +516,7 @@ export class VenusApp {
     const tan = aspect >= 1 ? [Math.tan(fov) * aspect, Math.tan(fov)] : [Math.tan(fov * 1.25), Math.tan(fov * 1.25) / aspect];
     this.tan = tan;
     this.orbit.render(rt, st, L, this.year, this.hour, this.time, tan);
-    this.renderPoster(rt, null, st, L, 1);
+    this.painter.render(rt, this.canvas.width, this.canvas.height, this.paintLook(rt));
   }
 
   viewProj(cam, tx, ty) {
