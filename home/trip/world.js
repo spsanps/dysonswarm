@@ -26,9 +26,9 @@ export const STOPS = ['swarm', 'venus', 'ring', 'sky', 'triton'];
 
 const L = {
   FW: 1600, FH: 1000, fx: .6, fy: .4,
-  frames: { swarm: [0, 0], statement: [400, 575], venus: [1900, 0], ring: [3800, 0], sky: [5600, 0], triton: [9300, 0], outro: [10900, 0] },
+  frames: { swarm: [0, 0], venus: [1900, 0], ring: [3800, 0], sky: [5600, 0], triton: [9300, 0], outro: [11100, 0] },
   SUN: [1100, 400], SR: 250,
-  MERCURY: [292, 548], MR: 86,
+  MERCURY: [300, 518], MR: 86,
   VENUS: [3160, 430], VR: 152,
   EARTH: [4815, 440], ER: 248, MOON: [5255, 160], MOR: 34,
   HAB: [6680, 420], HL: 420, HR: 180, HA: -.2,
@@ -46,12 +46,12 @@ const L = {
   TUG: [3630, 240], TGR: 42,
   CONVOY: [[3200, 860], [3420, 760], [3780, 640]],
   TRAFFIC: [[5290, 175], [5700, 40], [6150, 180], [6420, 455]],
-  KUIPER: [12000, 12450],
+  KUIPER: [12530, 12730],
   q: .72,
 };
 const P = {
   FW: 1000, FH: 1800, fx: .5, fy: .34,
-  frames: { swarm: [0, 0], statement: [0, 760], venus: [0, 2150], ring: [0, 4300], sky: [0, 6400], triton: [0, 10500], outro: [0, 12300] },
+  frames: { swarm: [0, 0], venus: [0, 2150], ring: [0, 4300], sky: [0, 6400], triton: [0, 10500], outro: [0, 12300] },
   SUN: [585, 600], SR: 262,
   MERCURY: [232, 1105], MR: 84,
   VENUS: [520, 2150 + 900], VR: 150,

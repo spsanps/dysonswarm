@@ -14,9 +14,9 @@ import { drawLive } from './live.js';
 import { swarmScene, launchTime } from './swarm.js';
 import { easeInOut, clamp, smooth } from './math.js';
 
-// where each kind of section holds the camera, in places along the trip (for printing plates
-// ahead and for the rail): the places themselves, the 2050s beat under the Sun, the end
-const POS = { swarm: 0, statement: .3, venus: 1, ring: 2, sky: 3, triton: 4, outro: 4.7 };
+// where each section holds the camera, in places along the trip (for printing plates ahead and
+// for the rail): the five places, then the end past Neptune with the 2050s statement
+const POS = { swarm: 0, venus: 1, ring: 2, sky: 3, triton: 4, outro: 4.7 };
 const MAX_STAGE_PX = 8.4e6;   // device pixels per stage canvas (a 4K screen at full resolution)
 const FPS = 30;               // the live layer's rate; the camera follows scroll at the display's rate
 const NEAR = 1.3, FAR = 2.4;  // print plates within NEAR places of the camera; free them beyond FAR
@@ -96,7 +96,7 @@ export function startTrip(root, { fixedT = null, onReady = () => {}, onFail = ()
   /* ── how far from the Sun the camera is ── */
   // At the places, their own distances; between Another Sky and Neptune, the planets passed on
   // screen set the reading; elsewhere it eases between places (in log distance).
-  const AU_POS = [[0, .387], [POS.statement, .387], [1, .723], [2, 1], [3, 1], [4, 30.07], [4.7, 39.5]];
+  const AU_POS = [[0, .387], [1, .723], [2, 1], [3, 1], [4, 30.07], [4.7, 39.5]];
   const logLerp = (A, x) => {
     if (x <= A[0][0]) return A[0][1];
     for (let i = 1; i < A.length; i++) if (x <= A[i][0]) { const u = (x - A[i - 1][0]) / ((A[i][0] - A[i - 1][0]) || 1); return Math.exp(Math.log(A[i - 1][1]) + (Math.log(A[i][1]) - Math.log(A[i - 1][1])) * u); }
@@ -227,10 +227,12 @@ export function startTrip(root, { fixedT = null, onReady = () => {}, onFail = ()
     const vh = S.H;
     for (const k of keys) {
       if (!k.card) continue;
-      const enter = k.j === 0 ? 1 : smooth(k.top - vh * .55, k.top - vh * .06, y), exit = 1 - smooth(k.b + vh * .02, k.b + vh * .3, y);
+      const last = k.j === keys.length - 1;   // the end stays up as the footer comes into view
+      const enter = k.j === 0 ? 1 : smooth(k.top - vh * .55, k.top - vh * .06, y), exit = last ? 1 : 1 - smooth(k.b + vh * .02, k.b + vh * .3, y);
       set(k.card, enter * exit);
     }
     document.body.classList.toggle('is-past', y > vh * .35);
+    document.body.classList.toggle('is-end', keys.length > 0 && y > keys[keys.length - 1].b + vh * .04);
     const p = posAt(ft), cur = Math.round(clamp(p, 0, STOPS.length - 1));
     if (rail) {
       rail.classList.toggle('is-shown', p < STOPS.length - .45);

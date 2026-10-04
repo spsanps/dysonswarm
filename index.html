@@ -41,7 +41,7 @@
 </head>
 <body>
   <header class="top">
-    <a class="mark" href="#top" aria-label="Dyson Swarm, back to the start">Dyson Swarm</a>
+    <a class="mark" href="#top" aria-label="Dyson Swarm, back to the first place">Dyson Swarm</a>
     <!-- The itinerary, once the first screen has scrolled away (live trip only). -->
     <nav class="rail" data-rail aria-label="Places on the trip">
       <ol>
@@ -70,47 +70,23 @@
       <div class="stage-scrim" aria-hidden="true"></div>
     </div>
 
-    <!-- The first screen is the first place: the Swarm, under the collection's name. -->
-    <section class="stop stop-first" id="swarm" data-frame="swarm" style="--accent: #f6c444" aria-labelledby="title">
+    <h1 class="sr-only">Dyson Swarm: space interactives by San Kala</h1>
+    <!-- The first screen is the first place, laid out like every other. -->
+    <section class="stop" id="swarm" data-frame="swarm" style="--accent: #f6c444" aria-labelledby="swarm-title">
       <div class="card-wrap">
-        <article class="card card-first" data-card>
+        <article class="card" data-card>
+          <a class="poster" href="/swarm/" tabindex="-1"><img src="/home/covers/stills/dyson-swarm-360.webp" srcset="/home/covers/stills/dyson-swarm-360.webp 360w, /home/covers/stills/dyson-swarm.webp 720w" sizes="(max-width: 619px) 92px, 168px" width="360" height="540" decoding="async" alt="Poster for The Swarm: a screenprint of solar collectors orbiting an orange sun while Mercury is taken apart."></a>
           <div class="card-text">
-            <span class="bar" aria-hidden="true"></span>
-            <h1 id="title">Dyson Swarm</h1>
             <p class="where"><b>01</b>The Swarm <i>·</i> Mercury <i>·</i> 0.39 AU <i>·</i> sunlight 3 min</p>
+            <h2 id="swarm-title"><a href="/swarm/">The Swarm</a></h2>
             <p class="pitch">Take Mercury apart and put its matter in orbit around the Sun.</p>
-            <p class="actions"><a class="open" href="/swarm/">Open the Swarm <span aria-hidden="true">→</span></a><span class="by">Space interactives by <a href="https://sankala.me">San Kala</a></span></p>
+            <a class="open" href="/swarm/">Open the Swarm <span aria-hidden="true">→</span></a>
           </div>
         </article>
-        <p class="hint" aria-hidden="true"><i></i>Five places, out from the Sun</p>
+        <p class="hint" aria-hidden="true"><i></i>Scroll to travel out from the Sun</p>
       </div>
     </section>
 
-    <!-- The second beat: the camera turns from the Sun into the dark, and says when these places are. -->
-    <section class="beat" id="the-2050s" data-frame="statement" aria-labelledby="statement-title">
-      <picture class="stop-still">
-        <source media="(max-aspect-ratio: 19/20)" srcset="/home/trip/stills/statement-portrait-1000.webp" width="1000" height="1800">
-        <img src="/home/trip/stills/statement-landscape-1600.webp" width="1600" height="1000" loading="lazy" decoding="async" alt="">
-      </picture>
-      <div class="card-wrap beat-wrap">
-        <div class="statement" data-card>
-          <h2 id="statement-title">Starting in the <em>2050s</em>.</h2>
-          <p class="statement-body">Most talk about the future looks ten or twenty years ahead. I’m deliberately looking further: the 2050s and on, past the singularity, when we start building megastructures in space. Very few people think about space, AI and the singularity together. These places are where I do.</p>
-          <div class="timeline" role="img" aria-label="A timeline from now to 2080. Most talk about the future covers the next ten to twenty years; these places start in the 2050s and run on from there.">
-            <span class="tl-most"><i>Most futures</i></span>
-            <span class="tl-ours"><i>These places</i></span>
-            <span class="tl-tick" style="--at: 0"><b>Now</b></span>
-            <span class="tl-tick" style="--at: .074"><b>2030</b></span>
-            <span class="tl-tick" style="--at: .259"><b>2040</b></span>
-            <span class="tl-tick tl-big" style="--at: .444"><b>2050</b></span>
-            <span class="tl-tick" style="--at: .63"><b>2060</b></span>
-            <span class="tl-tick" style="--at: .815"><b>2070</b></span>
-            <span class="tl-tick" style="--at: 1"><b>2080</b></span>
-          </div>
-          <p class="motto">Space futurism and AI futurism, together.</p>
-        </div>
-      </div>
-    </section>
 
     <section class="stop" id="venus" data-frame="venus" style="--accent: #e2a62f" aria-labelledby="venus-title">
       <picture class="stop-still">
@@ -188,11 +164,29 @@
       </div>
     </section>
 
-    <section class="outro" data-frame="outro" aria-labelledby="end-title">
-      <div class="outro-in">
-        <h2 class="label" id="end-title"><span class="bar" aria-hidden="true"></span>End of the line</h2>
-        <p class="end-line">Five places, from the Sun out to Neptune.</p>
-        <p class="end-back"><a href="#top">Back to the Sun <span aria-hidden="true">↑</span></a></p>
+    <!-- The end of the trip, out past Neptune: when these places are. -->
+    <section class="beat" id="the-2050s" data-frame="outro" aria-labelledby="statement-title">
+      <picture class="stop-still">
+        <source media="(max-aspect-ratio: 19/20)" srcset="/home/trip/stills/outro-portrait-1000.webp" width="1000" height="1800">
+        <img src="/home/trip/stills/outro-landscape-1600.webp" width="1600" height="1000" loading="lazy" decoding="async" alt="">
+      </picture>
+      <div class="card-wrap beat-wrap">
+        <div class="statement" data-card>
+          <h2 id="statement-title">Starting in the <em>2050s</em>.</h2>
+          <p class="statement-body">Most talk about the future looks ten or twenty years ahead. I’m deliberately looking further: the 2050s and on, past the singularity, when we start building megastructures in space. Very few people think about space, AI and the singularity together. These places are where I do.</p>
+          <div class="timeline" role="img" aria-label="A timeline from now to 2080. Most talk about the future covers the next ten to twenty years; these places start in the 2050s and run on from there.">
+            <span class="tl-most"><i>Most futures</i></span>
+            <span class="tl-ours"><i>These places</i></span>
+            <span class="tl-tick" style="--at: 0"><b>Now</b></span>
+            <span class="tl-tick" style="--at: .074"><b>2030</b></span>
+            <span class="tl-tick" style="--at: .259"><b>2040</b></span>
+            <span class="tl-tick tl-big" style="--at: .444"><b>2050</b></span>
+            <span class="tl-tick" style="--at: .63"><b>2060</b></span>
+            <span class="tl-tick" style="--at: .815"><b>2070</b></span>
+            <span class="tl-tick" style="--at: 1"><b>2080</b></span>
+          </div>
+          <p class="motto">Space futurism and AI futurism, together.</p>
+        </div>
       </div>
     </section>
   </main>
