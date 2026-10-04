@@ -1,0 +1,230 @@
+/* THE ORBITAL RING: page styles. The window is the picture; the page stays out of its way.
+   Type: Jost (a Futura-like geometric sans, the space-age face) and Courier Prime
+   (typed captions, like a slide label). Panels are cream index cards. */
+@font-face { font-family: Jost; src: url(./fonts/jost-latin.woff2) format("woff2"); font-weight: 300 700; font-display: swap }
+@font-face { font-family: "Courier Prime"; src: url(./fonts/courier-prime-latin.woff2) format("woff2"); font-weight: 400; font-display: swap }
+:root {
+  --ink: #f2e9d8;
+  --ink-dim: rgba(242, 233, 216, .68);
+  --line: rgba(242, 233, 216, .24);
+  --night: #15110d;
+  --amber: #e2a247;
+  --card: #efe6d3;
+  --card-ink: #2b241b;
+  --card-dim: #6f6352;
+  --rule: #b8492f;
+  --glass: rgba(21, 17, 13, .62);
+  --sans: Jost, Futura, "Century Gothic", "Avenir Next", system-ui, sans-serif;
+  --mono: "Courier Prime", "Courier New", ui-monospace, monospace;
+}
+* { box-sizing: border-box }
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: var(--night); color: var(--ink); font-family: var(--sans); font-size: 15px; -webkit-font-smoothing: antialiased }
+button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent }
+a { color: inherit }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0) }
+
+/* ---------- picture ---------- */
+#ride { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; cursor: grab }
+#ride:active { cursor: grabbing }
+.still { position: fixed; inset: 0; background: var(--night) }
+.still img { width: 100%; height: 100%; object-fit: cover; object-position: 70% 50%; display: block }
+.still::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(14, 10, 7, .78) 0%, rgba(14, 10, 7, .42) 38%, rgba(14, 10, 7, 0) 64%), linear-gradient(0deg, rgba(14, 10, 7, .55), rgba(14, 10, 7, 0) 40%) }
+.riding .still { display: none }
+.flash { position: fixed; inset: 0; background: #fff8ea; opacity: 0; pointer-events: none; z-index: 40; transition: opacity .35s ease-out }
+.flash.on { opacity: .85; transition: none }
+
+/* ---------- header ---------- */
+.top { position: fixed; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: max(20px, env(safe-area-inset-top)) max(28px, env(safe-area-inset-right)) 0 max(28px, env(safe-area-inset-left)); z-index: 5; pointer-events: none }
+.mark { display: flex; align-items: center; gap: 12px; text-decoration: none; pointer-events: auto; text-shadow: 0 1px 10px rgba(0, 0, 0, .5) }
+.mark svg { width: 34px; height: 34px; flex: none }
+.mark b { display: block; font-weight: 500; font-size: 12px; letter-spacing: .26em }
+.mark small { display: block; margin-top: 4px; font-size: 9px; letter-spacing: .2em; color: var(--ink-dim) }
+.tools { display: flex; gap: 6px; pointer-events: auto; align-items: center }
+.tool { border: 1px solid var(--line); background: var(--glass); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-radius: 4px; padding: 9px 13px; font-size: 12px; letter-spacing: .04em; line-height: 1.1; transition: background .2s, color .2s }
+.tool:hover, .tool[aria-pressed="true"], .tool[aria-expanded="true"] { background: var(--ink); color: var(--night) }
+.tool b { font-weight: 500 }
+.tool.round { width: 34px; padding: 9px 0; text-align: center }
+[hidden] { display: none !important }
+body:not(.riding) .ride-only { display: none !important }
+.dep-wrap { position: relative }
+.dep-menu { position: absolute; right: 0; top: calc(100% + 6px); min-width: 230px; background: var(--card); color: var(--card-ink); border-radius: 4px; padding: 6px; display: none; box-shadow: 0 14px 40px rgba(0, 0, 0, .35) }
+.dep-menu.open { display: block }
+.dep-menu button { display: flex; width: 100%; justify-content: space-between; align-items: baseline; gap: 14px; border: 0; background: none; padding: 9px 10px; border-radius: 3px; text-align: left; font-size: 14px }
+.dep-menu button small { font-family: var(--mono); font-size: 11px; color: var(--card-dim) }
+.dep-menu button:hover { background: rgba(43, 36, 27, .08) }
+.dep-menu button[aria-checked="true"] { background: var(--card-ink); color: var(--card) }
+.dep-menu button[aria-checked="true"] small { color: rgba(239, 230, 211, .7) }
+
+/* ---------- intro ---------- */
+.intro { position: fixed; left: max(6vw, 28px); bottom: 14vh; width: min(520px, calc(100% - 56px)); z-index: 4 }
+.riding .intro, .booting .intro { display: none }
+.eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: .14em; margin: 0; color: var(--ink-dim) }
+.intro h1 { font-weight: 400; font-size: clamp(56px, 7.4vw, 104px); line-height: .96; letter-spacing: -.035em; margin: 18px 0 22px }
+.lede { font-size: 16px; line-height: 1.6; max-width: 410px; margin: 0 0 28px }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center }
+.primary { border: 0; background: var(--ink); color: var(--night); border-radius: 4px; padding: 15px 22px; font-size: 13px; font-weight: 500; letter-spacing: .06em; display: inline-flex; gap: 18px; align-items: center; box-shadow: 0 6px 28px rgba(0, 0, 0, .25) }
+.primary:hover { background: #fff6e4 }
+.secondary { border: 1px solid var(--line); background: rgba(21, 17, 13, .3); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-radius: 4px; padding: 14px 17px; font-size: 13px }
+.secondary:hover { background: rgba(21, 17, 13, .65) }
+.micro { font-family: var(--mono); font-size: 12px; line-height: 1.6; color: var(--ink-dim); margin: 22px 0 0; max-width: 400px }
+
+/* ---------- read-outs, note, rail ---------- */
+.hud { position: fixed; left: max(28px, env(safe-area-inset-left)); bottom: max(26px, env(safe-area-inset-bottom)); z-index: 3; pointer-events: none; text-shadow: 0 1px 8px rgba(0, 0, 0, .7) }
+.readouts { display: grid; grid-template-columns: repeat(3, auto); gap: 14px 30px; margin: 0 }
+.readouts dt { font-size: 9px; letter-spacing: .2em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 4px }
+.readouts dd { margin: 0; font-family: var(--mono); font-size: 16px; white-space: nowrap }
+.readouts em { font-style: normal; font-size: 12px; color: var(--ink-dim) }
+.note { position: fixed; left: 50%; bottom: 96px; transform: translate(-50%, 6px); max-width: min(560px, calc(100% - 40px)); margin: 0; padding: 11px 16px; background: rgba(21, 17, 13, .66); border-left: 2px solid var(--amber); font-family: var(--mono); font-size: 15px; line-height: 1.45; opacity: 0; transition: opacity .6s, transform .6s; pointer-events: none; z-index: 3; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px) }
+.note.show { opacity: 1; transform: translate(-50%, 0) }
+.rail { position: fixed; right: max(30px, env(safe-area-inset-right)); top: 22vh; height: 52vh; width: 150px; z-index: 3; cursor: pointer }
+.rail-line { position: absolute; right: 0; top: 0; bottom: 0; width: 1px; background: var(--line) }
+.rail i { position: absolute; right: 0; width: 7px; height: 1px; background: var(--ink-dim); font-style: normal }
+.rail i b { position: absolute; right: 14px; top: -9px; white-space: nowrap; font-family: var(--mono); font-weight: 400; font-size: 11px; color: var(--ink); background: rgba(21, 17, 13, .5); padding: 1px 6px; border-radius: 2px }
+.railcar { position: absolute; right: -4px; width: 9px; height: 9px; margin-bottom: -4px; background: var(--amber); box-shadow: 0 0 10px rgba(226, 162, 71, .7); transition: bottom .12s linear }
+.rail:hover i b { color: var(--ink) }
+
+/* ---------- controls ---------- */
+.controls { display: flex; position: fixed; right: max(28px, env(safe-area-inset-right)); bottom: max(24px, env(safe-area-inset-bottom)); gap: 8px; align-items: center; z-index: 4 }
+.seg { display: flex }
+.seg .tool { border-radius: 0; margin-left: -1px }
+.seg .tool:first-child { border-radius: 4px 0 0 4px; margin-left: 0 }
+.seg .tool:last-child { border-radius: 0 4px 4px 0 }
+.shutter { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px 7px 8px }
+.shutter i { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid currentColor; position: relative }
+.shutter i::after { content: ""; position: absolute; inset: 4px; border-radius: 50%; background: var(--amber) }
+.shutter span:not(.sr) { font-family: var(--mono); font-size: 13px }
+.shutter[disabled] { opacity: .45; cursor: default }
+.depart { padding: 13px 18px }
+.arrive { position: fixed; left: 50%; top: 74px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 4; width: min(820px, calc(100% - 40px)) }
+.arrive-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center }
+.arrive .station { margin: 0; font-family: var(--mono); font-size: 13px; text-align: center; color: var(--ink); background: rgba(21, 17, 13, .55); padding: 6px 12px; border-radius: 3px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px) }
+.arrive .station:empty { display: none }
+#downBtn[disabled] { opacity: .5; cursor: default }
+
+/* ---------- cards ---------- */
+.panel-wrap { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(10, 8, 6, .5); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); z-index: 20 }
+.panel-wrap.open { display: flex }
+.card { position: relative; width: min(600px, 100%); max-height: calc(100vh - 40px); overflow-y: auto; background: var(--card); color: var(--card-ink); border-radius: 3px; padding: 34px 38px 30px; box-shadow: 0 30px 90px rgba(0, 0, 0, .45); border-top: 3px solid var(--rule); background-image: repeating-linear-gradient(transparent 0 27px, rgba(80, 110, 140, .09) 27px 28px); background-position: 0 92px }
+.card .eyebrow { color: var(--card-dim) }
+.card h2 { font-weight: 400; font-size: 34px; letter-spacing: -.02em; margin: 10px 0 18px; line-height: 1.05 }
+.card h3 { font-family: var(--mono); font-weight: 400; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--rule); margin: 24px 0 8px }
+.card p, .card li { font-size: 15px; line-height: 1.6 }
+.card ul { padding-left: 18px; margin: 0 }
+.card li { margin-bottom: 6px }
+.card .small { font-family: var(--mono); font-size: 12.5px; line-height: 1.6; color: var(--card-dim) }
+.card .small a { color: var(--card-ink) }
+.card .sign { border-top: 1px solid rgba(43, 36, 27, .18); padding-top: 14px; margin-top: 22px }
+.card .close { position: absolute; top: 14px; right: 14px; width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(43, 36, 27, .25); background: transparent; color: var(--card-ink); font-size: 20px; line-height: 1 }
+.card .close:hover { background: var(--card-ink); color: var(--card) }
+.card .tool { color: var(--card-ink); background: transparent; border-color: rgba(43, 36, 27, .3); backdrop-filter: none }
+.card .tool:hover, .card .tool[aria-pressed="true"] { background: var(--card-ink); color: var(--card) }
+.keys { display: grid; grid-template-columns: 9.5em 1fr; gap: 9px 18px; margin: 4px 0 22px }
+.keys dt { font-family: var(--mono); font-size: 13px; color: var(--card-dim); padding-top: 2px }
+.keys dd { margin: 0; font-size: 15px }
+.setting { display: flex; align-items: center; gap: 14px; border-top: 1px solid rgba(43, 36, 27, .18); padding-top: 16px }
+.setting > span { font-family: var(--mono); font-size: 13px; color: var(--card-dim) }
+.sorter { width: min(820px, 100%) }
+.stops { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-top: 14px }
+.stops button { border: 0; background: #1a1510; color: var(--ink); padding: 8px 8px 11px; border-radius: 2px; text-align: left; box-shadow: 0 2px 0 rgba(0, 0, 0, .15) }
+.stops button:hover { outline: 2px solid var(--rule) }
+.stops img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; background: #0d0a07; margin-bottom: 9px }
+.stops b { display: block; font-weight: 400; font-size: 14px }
+.stops small { font-family: var(--mono); font-size: 11px; color: var(--ink-dim) }
+.rollcard { width: min(860px, 100%) }
+.strip { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; padding: 16px 14px; background: #120e0a; border-radius: 2px; margin: 16px 0 20px; background-image: radial-gradient(circle, #2a221a 2px, transparent 2.5px), radial-gradient(circle, #2a221a 2px, transparent 2.5px); background-size: 14px 10px; background-repeat: repeat-x; background-position: 0 3px, 0 calc(100% - 3px) }
+.strip figure { margin: 0 }
+.strip canvas, .strip .empty { display: block; width: 100%; aspect-ratio: 1; background: #050403; border-radius: 1px }
+.strip figcaption { font-family: var(--mono); font-size: 10px; color: rgba(242, 233, 216, .62); margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+
+/* ---------- boot, failure, slides ---------- */
+.boot { position: fixed; inset: 0; z-index: 30; display: none; align-items: center; justify-content: center; background: var(--night); text-align: center; padding: 24px }
+.boot.show { display: flex }
+.boot-in { max-width: 460px }
+.boot-mark { width: 64px; height: 64px; color: var(--ink-dim); margin-bottom: 18px }
+.boot-car { animation: climb 2.4s ease-in-out infinite }
+@keyframes climb { 0% { transform: translateY(0) } 55% { transform: translateY(-9px) } 100% { transform: translateY(0) } }
+.boot h2 { font-weight: 400; font-size: 34px; letter-spacing: -.02em; margin: 0 0 12px }
+.boot p { font-family: var(--mono); font-size: 12px; letter-spacing: .14em; color: var(--ink-dim) }
+.boot .bar { width: 200px; height: 1px; background: var(--line); margin: 18px auto 0 }
+.boot .bar i { display: block; height: 100%; width: 0; background: var(--amber); transition: width .3s }
+.boot .fail { display: none; margin-top: 10px }
+.failed .boot .fail { display: block }
+.failed .boot .bar, .failed .boot #bootText, .failed .boot-car { display: none }
+.boot .fail p { letter-spacing: 0; font-size: 14px; line-height: 1.6; color: var(--ink) }
+.boot .fail .small { font-size: 12px; color: var(--ink-dim) }
+.slides { position: fixed; inset: 0; z-index: 35; background: #0b0907; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 20px }
+.slides[hidden] { display: none }
+.slides img { max-width: 100%; max-height: 74vh; display: block }
+.slides p { font-family: var(--mono); font-size: 14px; margin: 0; text-align: center; max-width: 600px; line-height: 1.5 }
+.slide-nav { display: flex; gap: 8px }
+.slides .close { position: absolute; top: 16px; right: 16px; width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--line); background: transparent; font-size: 20px }
+
+/* ---------- hiding and fallbacks ---------- */
+.ui-hidden .top, .ui-hidden .hud, .ui-hidden .rail, .ui-hidden .controls, .ui-hidden .note, .ui-hidden .arrive { display: none !important }
+.static-fallback { position: fixed; inset: 0; z-index: 100; overflow: auto; padding: 32px; background: var(--night) }
+.static-fallback img { display: block; max-width: 100%; width: 900px; margin: 18px 0 }
+
+/* ---------- small screens ---------- */
+@media (max-width: 760px) {
+  .top { padding: max(14px, env(safe-area-inset-top)) 16px 0 16px; align-items: flex-start }
+  .mark { gap: 8px }
+  .mark svg { width: 26px; height: 26px }
+  .mark b { font-size: 9px; letter-spacing: .14em; white-space: nowrap }
+  .mark small { font-size: 8px }
+  .tools { gap: 4px; flex-wrap: nowrap }
+  .tool { padding: 8px 8px; font-size: 11px }
+  .tool.round { width: 30px }
+  #depBtn .lbl { display: none }
+  #depBtn b { text-transform: capitalize }
+  .still::after { background: linear-gradient(0deg, rgba(14, 10, 7, .92) 0%, rgba(14, 10, 7, .78) 34%, rgba(14, 10, 7, .25) 58%, rgba(14, 10, 7, 0) 72%) }
+  .intro { left: 20px; bottom: 9vh; width: calc(100% - 40px) }
+  .intro h1 { font-size: 58px; margin: 14px 0 16px }
+  .lede { font-size: 15px }
+  .micro { font-size: 11px }
+  .hud { left: 16px; bottom: auto; top: 74px }
+  .readouts { grid-template-columns: repeat(3, auto); gap: 6px 18px }
+  .readouts .opt { display: none }
+  .readouts dd { font-size: 14px }
+  .readouts dt { font-size: 8px }
+  .note { bottom: 82px; font-size: 13px; padding: 9px 12px; width: calc(100% - 32px) }
+  .rail { right: 10px; top: 30vh; height: 40vh; width: 20px }
+  .rail i b { display: none }
+  .rail i:first-of-type b, .rail i:last-of-type b { display: block; font-size: 9px; right: 10px }
+  .controls { left: 16px; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); justify-content: space-between; flex-wrap: wrap }
+  .arrive { top: auto; bottom: 120px; width: calc(100% - 32px) }
+  .arrive .station { font-size: 11px }
+  .riding[data-phase=gallery] .note, .riding[data-phase=docked] .note { bottom: 230px }
+  .card { padding: 28px 22px 22px }
+  .card h2 { font-size: 28px }
+  .keys { grid-template-columns: 7.5em 1fr }
+  .strip { grid-template-columns: repeat(4, 1fr) }
+  .depart { order: -1; flex-basis: 100% ; justify-content: center }
+}
+@media (max-width: 380px) {
+  .tools .tool:not(.round):not(#depBtn) { padding: 8px 8px }
+  #depBtn { max-width: 120px }
+  .intro h1 { font-size: 50px }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important }
+}
+
+/* map labels on the world outside (labels.js): small, typewritten, like captions on a slide */
+#labels { position: fixed; inset: 0; pointer-events: none; z-index: 2; overflow: hidden; display: none }
+body.riding #labels { display: block }
+body.ui-hidden #labels { display: none }
+.lab { position: absolute; left: 0; top: 0; opacity: 0; white-space: nowrap; will-change: transform, opacity }
+.lab .in { display: inline-flex; align-items: center; gap: 5px; transform: translate(-50%, -50%); font-family: var(--mono); font-size: 11px; line-height: 1.2;
+  color: rgba(242, 233, 216, .92); text-shadow: 0 0 3px rgba(10, 8, 6, .95), 0 1px 2px rgba(10, 8, 6, .8) }
+.lab-c .in, .lab-f .in, .lab-x .in { transform: translate(-4px, -50%) }
+.lab i { flex: none; width: 4px; height: 4px; border-radius: 50%; background: currentColor; box-shadow: 0 0 3px rgba(10, 8, 6, .9) }
+.lab-f i { width: 3px; height: 3px; background: none; border: 1px solid currentColor }
+.lab-w .in { font-style: italic; letter-spacing: .05em; color: rgba(192, 214, 232, .9) }
+.lab-s .in { text-transform: uppercase; letter-spacing: .3em; font-size: 9.5px; color: rgba(242, 233, 216, .74) }
+.lab-n .in { text-transform: uppercase; letter-spacing: .42em; font-size: 11.5px; color: rgba(242, 233, 216, .8) }
+.lab-r .in { text-transform: uppercase; letter-spacing: .2em; font-size: 9px; color: rgba(230, 212, 178, .72) }
+.lab-x .in { color: var(--amber) }
+.lab-x i { width: 5px; height: 5px; border-radius: 1px; transform: rotate(45deg) }
+.lab small { font-size: 9.5px; color: var(--ink-dim); margin-left: 1px }
+@media (max-width: 640px) { .lab .in { font-size: 10px } .lab-s .in, .lab-r .in { font-size: 8.5px } }

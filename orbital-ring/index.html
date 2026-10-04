@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#16120e">
+<title>The Orbital Ring — ride up from the sea</title>
+<meta name="description" content="A ring circles the Earth 300 km up. Ride a cable up to it from the sea at dawn, travel along it, and ride down somewhere else.">
+<meta name="author" content="San Kala">
+<link rel="canonical" href="https://dysonswarm.com/orbital-ring/">
+<link rel="icon" type="image/svg+xml" href="./images/favicon.svg">
+<link rel="preload" href="./fonts/jost-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="./styles.css">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Dyson Swarm">
+<meta property="og:title" content="The Orbital Ring — ride up from the sea">
+<meta property="og:description" content="A ring circles the Earth 300 km up. Ride a cable up to it from the sea, travel along it, and ride down somewhere else.">
+<meta property="og:url" content="https://dysonswarm.com/orbital-ring/">
+<meta property="og:image" content="https://dysonswarm.com/orbital-ring/images/social-preview.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Through the window of the climbing car: the ring is a thin line rising from the dawn horizon over the sea.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="The Orbital Ring — ride up from the sea">
+<meta name="twitter:description" content="A ring circles the Earth 300 km up. Ride a cable up to it from the sea, travel along it, and ride down somewhere else.">
+<meta name="twitter:image" content="https://dysonswarm.com/orbital-ring/images/social-preview.jpg">
+<meta name="twitter:image:alt" content="Through the window of the climbing car: the ring is a thin line rising from the dawn horizon over the sea.">
+</head>
+<body>
+<noscript><div class="static-fallback"><h1>The Orbital Ring</h1><p>A ride to an orbital ring, 300 km above the Pacific off San Francisco. It needs JavaScript and WebGL2.</p><img src="./images/world-preview.jpg" alt="Through the window of the car at dawn: the ring rises from the horizon."><p><a href="/">More space interactives</a> · <a href="https://sankala.me">San Kala</a></p></div></noscript>
+
+<div class="still" aria-hidden="true"><img src="./images/world-preview.jpg" alt="" fetchpriority="high"></div>
+<canvas id="ride" tabindex="0" aria-label="The view from the car. Drag or use the arrow keys to look around."></canvas>
+<div id="labels" aria-hidden="true"></div>
+<div class="flash" id="flash" aria-hidden="true"></div>
+
+<header class="top">
+  <a class="mark" href="/" aria-label="Dyson Swarm: all the worlds">
+    <svg viewBox="0 0 40 40" fill="none" aria-hidden="true"><path d="M2 29C8 18 32 18 38 29" stroke="currentColor" stroke-width="1.2"/><path d="M20 38V20.6" stroke="currentColor" stroke-width="1.2"/><rect x="17" y="28" width="6" height="7" rx="1.4" fill="currentColor"/><circle cx="31.5" cy="9" r="3.2" fill="#e2a247"/></svg>
+    <span><b>THE ORBITAL RING</b><small>DYSON SWARM ↗</small></span>
+  </a>
+  <nav class="tools" aria-label="Ride menu">
+    <div class="dep-wrap"><button class="tool" id="depBtn" type="button" aria-haspopup="true" aria-expanded="false"><span class="lbl">Leave at </span><b id="depLabel">dawn</b> ▾</button>
+      <div class="dep-menu" id="depMenu" role="menu"><button role="menuitemradio" data-dep="dawn" aria-checked="true" type="button">Dawn <small>sun 7° below</small></button><button role="menuitemradio" data-dep="day" aria-checked="false" type="button">Midday <small>late morning</small></button><button role="menuitemradio" data-dep="dusk" aria-checked="false" type="button">Dusk <small>just after sunset</small></button><button role="menuitemradio" data-dep="night" aria-checked="false" type="button">Night <small>stars, lightning</small></button><button role="menuitemradio" data-dep="now" aria-checked="false" type="button">Now <small id="nowHint">the real hour there</small></button></div></div>
+    <button class="tool ride-only" data-open="stills" type="button">Stills</button>
+    <button class="tool" data-open="about" type="button">About</button>
+    <button class="tool round" data-open="help" type="button" aria-label="Controls and settings">?</button>
+  </nav>
+</header>
+
+<section class="intro" id="intro" aria-labelledby="title">
+  <p class="eyebrow">AN ORBITAL RING · 300 KM ABOVE THE PACIFIC, OFF SAN FRANCISCO</p>
+  <h1 id="title">Up to<br>the ring.</h1>
+  <p class="lede">A ring circles the Earth 300 km up, and cables hang from it to the sea. Ride one up at dawn, through the clouds and out of the blue. Then travel along the ring, and ride down somewhere else.</p>
+  <div class="actions"><button class="primary" id="enterButton" type="button">Board the car <span aria-hidden="true">↑</span></button><button class="secondary" type="button" data-open="about">What’s an orbital ring?</button></div>
+  <p class="micro">Fifteen minutes from the sea to the ring, shown five times faster. Look anywhere, pause, speed up. Best on a desktop; works on phones.</p>
+</section>
+
+<section class="hud ride-only" aria-label="Read-outs">
+  <dl class="readouts">
+    <div><dt>Altitude</dt><dd id="rAlt">22 m</dd></div>
+    <div><dt>Speed</dt><dd><span id="rSpeed">standing</span> <em id="rSpeedK"></em></dd></div>
+    <div><dt>You weigh</dt><dd id="rWeight">100%</dd></div>
+    <div class="opt"><dt>Air</dt><dd id="rAir">100%</dd></div>
+    <div class="opt"><dt id="rRideLabel">Ride</dt><dd id="rRide">00:00</dd></div>
+    <div class="opt"><dt id="rClockLabel">At the platform</dt><dd id="rClock">05:30</dd></div>
+  </dl>
+</section>
+<p class="note ride-only" id="note" role="status" aria-live="polite"></p>
+
+<div class="rail ride-only" id="rail" aria-hidden="true" title="Click a height to go there">
+  <span class="rail-line"></span>
+  <i style="bottom:100%"><b>Ring · 300 km</b></i>
+  <i style="bottom:57.7%"><b>Kármán line · 100</b></i>
+  <i style="bottom:40.8%"><b>Black sky · 50</b></i>
+  <i style="bottom:20%"><b>Weather ends · 12</b></i>
+  <i style="bottom:9%"><b>Clouds</b></i>
+  <i style="bottom:0%"><b>Sea</b></i>
+  <span class="railcar" id="railCar"></span>
+</div>
+
+<div class="controls ride-only" role="toolbar" aria-label="Ride controls">
+  <button class="primary depart" id="departBtn" type="button" hidden>Depart<span></span> ↑</button>
+  <button class="tool" id="pauseBtn" type="button" aria-pressed="false">Pause</button>
+  <div class="seg" role="group" aria-label="Speed"><button class="tool" data-speed="1" aria-pressed="false" type="button">×1</button><button class="tool" data-speed="5" aria-pressed="true" type="button">×5</button><button class="tool" data-speed="20" aria-pressed="false" type="button">×20</button></div>
+  <button class="tool shutter" id="shutterBtn" type="button" title="Take a photograph (P)"><i aria-hidden="true"></i><span id="shotsLeft">12</span><span class="sr"> photographs left</span></button>
+  <button class="tool" id="followBtn" type="button" hidden>Follow the view</button>
+</div>
+<div class="arrive ride-only" id="arrive" hidden>
+  <p class="station" id="stationLabel"></p>
+  <div class="arrive-row">
+    <button class="primary" id="stepOutBtn" type="button" hidden>Step out to the gallery</button>
+    <div class="seg travel" id="travelSeg" role="group" aria-label="Travel along the ring"><button class="tool" data-travel="-1" type="button" title="Travel west (A)">◀ West</button><button class="tool" data-travel="0" type="button" title="Stop here (S)">Stop</button><button class="tool" data-travel="1" type="button" title="Travel east (D)">East ▶</button><button class="tool" data-travel="2" type="button" title="Go on to the next station (N)">Next station</button></div>
+    <button class="tool" id="downBtn" type="button">Ride this cable down</button>
+    <button class="tool" id="rollBtn" type="button" hidden>Your roll</button>
+    <button class="tool" id="againBtn" type="button">Back to the platform</button>
+  </div>
+</div>
+
+<div class="panel-wrap" id="stills" role="dialog" aria-modal="true" aria-labelledby="stillsTitle"><div class="card sorter">
+  <button class="close" data-close type="button" aria-label="Close">×</button>
+  <p class="eyebrow">STILLS</p><h2 id="stillsTitle">Go to a height.</h2>
+  <p class="small">The car goes there and waits. Press Play to carry on.</p>
+  <div class="stops">
+    <button data-jump="0.0215" type="button"><img data-src="./images/stills/1-platform.jpg" alt=""><b>On the platform</b><small>sea level</small></button>
+    <button data-jump="5" type="button"><img data-src="./images/stills/2-five-km.jpg" alt=""><b>Over the clouds</b><small>5 km</small></button>
+    <button data-jump="20" type="button"><img data-src="./images/stills/3-twenty-km.jpg" alt=""><b>Indigo</b><small>20 km</small></button>
+    <button data-jump="50" type="button"><img data-src="./images/stills/4-fifty-km.jpg" alt=""><b>Black sky</b><small>50 km</small></button>
+    <button data-jump="150" type="button"><img data-src="./images/stills/5-space.jpg" alt=""><b>Space</b><small>150 km</small></button>
+    <button data-jump="299.6" type="button"><img data-src="./images/stills/6-station.jpg" alt=""><b>Under the station</b><small>300 km</small></button>
+    <button data-jump="gallery" type="button"><img data-src="./images/stills/7-gallery.jpg" alt=""><b>Along the ring</b><small>the gallery</small></button>
+  </div>
+</div></div>
+
+<div class="panel-wrap" id="help" role="dialog" aria-modal="true" aria-labelledby="helpTitle"><div class="card">
+  <button class="close" data-close type="button" aria-label="Close">×</button>
+  <p class="eyebrow">CONTROLS</p><h2 id="helpTitle">Sit back.</h2>
+  <dl class="keys">
+    <dt>Drag · arrows</dt><dd>Look around the car.</dd>
+    <dt>Wheel · pinch</dt><dd>Zoom in and out.</dd>
+    <dt>R</dt><dd>Let the view follow the ride again.</dd>
+    <dt>Space</dt><dd>Pause.</dd>
+    <dt>1 · 2 · 3</dt><dd>Real time, five times, twenty times.</dd>
+    <dt>P</dt><dd>Take a photograph. There are twelve on the roll.</dd>
+    <dt>A · S · D · N</dt><dd>At the top: travel west, stop, travel east, or go on to the next station. There is a station with a cable every 15° round the ring; ride down any that lands on water.</dd>
+    <dt>H</dt><dd>Hide everything but the window.</dd>
+  </dl>
+  <div class="setting"><span>Picture</span><div class="seg" role="group" aria-label="Picture quality"><button class="tool" data-q="auto" aria-pressed="true" type="button">Auto</button><button class="tool" data-q="high" aria-pressed="false" type="button">Sharp</button><button class="tool" data-q="low" aria-pressed="false" type="button">Light</button></div></div>
+  <p class="small">Auto lowers the resolution when your device struggles. Light is for phones and older laptops.</p>
+</div></div>
+
+<div class="panel-wrap" id="about" role="dialog" aria-modal="true" aria-labelledby="aboutTitle"><div class="card about">
+  <button class="close" data-close type="button" aria-label="Close">×</button>
+  <p class="eyebrow">ABOUT</p><h2 id="aboutTitle">A ring around the Earth.</h2>
+  <p>In 1982 Paul Birch described an orbital ring: a heavy cable looping the Earth in low orbit, moving faster than orbital speed, so it pushes outward and can hold things up. Stations ride on it, held by magnets, and stay over one spot on the ground. Cables hang from them to the surface. Cars climb the cables.</p>
+  <p>I wanted to take that ride. Not look at a diagram. Sit in the car at dawn, watch the sky change, and arrive.</p>
+  <p>At the top you can travel along the ring. There is a station every 15° round the ring, 24 in all, each with its cable to the surface. Ride down any of them that comes down on water.</p>
+  <h3>What’s worked out</h3>
+  <ul>
+    <li>The sky. Its colour at each height comes from how air and haze scatter sunlight, computed for every pixel. Nobody painted the blue going away.</li>
+    <li>The geometry. At 300 km the horizon drops 17° and is about 1,900 km away: you can see from Vancouver Island to Baja California, and east past Salt Lake City. The coastlines, towns, bays and the other stations are labelled where you can see them, and the labels fade with distance.</li>
+    <li>The ride. The car speeds up at 1 m/s², the gentle rate Birch suggested for passengers, to about 670 m/s, then brakes for the last 75 km. Sea to ring in 14 minutes 54 seconds.</li>
+    <li>Your weight. 110% while the car speeds up, about 60% while it brakes, 91% at the station, because gravity 300 km up is 91% of what it is at the sea. Travel along the ring and you get lighter: at 4 km/s about 60% going east and 70% going west, because going east adds to the Earth’s spin.</li>
+    <li>The Sun, placed for today’s date and for where you are. The coastlines, lakes and towns are real; the colours of the land are approximate.</li>
+  </ul>
+  <h3>What I made up</h3>
+  <ul>
+    <li>The platform, the car with its glass roof, the stations and the cables. Birch’s papers describe the physics, not what any of it looks like, or where the stations go.</li>
+    <li>The beacons along the ring, so you can trace it across a twilight sky. At dawn sunlight only grazes its underside.</li>
+    <li>Where the ring runs. Birch’s worked examples sit over the equator, but his papers allow rings at an angle to it. This one is tilted 37.45° so that its northernmost point is over the Pacific about 30 km off Half Moon Bay, where the first platform floats; there the ring runs due east and west. From there it crosses New Mexico and Alabama, the Atlantic, South Africa, the Indian Ocean and northwest Australia, and comes back over the Pacific north of Hawaii. A ring this tilted would need steering against the slow twist that the Earth’s equatorial bulge gives any tilted orbit.</li>
+    <li>The 24 stations, one every 15° round the ring, and the gallery pod that carries you between them at up to 4 km/s.</li>
+    <li>The ring’s 12 m casing. Birch’s worked examples are rings about 2 m across. One of his variants wraps the ring in a stationary sheath; I drew one 12 m wide so you could see it. Far away it is drawn a little wider than it would look, so you can follow it to the horizon.</li>
+    <li>The braking, the weather and the clouds. Each cumulus is a few rounded shapes roughened with noise; nothing comes from satellite pictures.</li>
+  </ul>
+  <h3>Sources</h3>
+  <p class="small">Paul Birch, “Orbital Ring Systems and Jacob’s Ladders” I–III, <i>Journal of the British Interplanetary Society</i> 35–36 (1982); <a href="https://nss.org/wp-content/uploads/2017/07/Orbital-Rings.pdf">scan at the National Space Society</a>. He used 300 km and 600 km as typical heights. Coastlines, lakes, towns and regions from <a href="https://www.naturalearthdata.com/">Natural Earth</a> (public domain). The sky follows Sébastien Hillaire’s 2020 atmosphere model and Bruneton and Neyret (2008).</p>
+  <p class="small sign">Made by <a href="https://sankala.me">San Kala</a>. Every frame is drawn in your browser, in code: no photographs. The look is 1960s colour slide film through a capsule window. Films from the same corner of my head are on <a href="https://www.youtube.com/@paperrobotsfilms">Paper Robots</a>.<br><a href="/">More places we could build ↗</a> · <a href="https://github.com/spsanps/dysonswarm/tree/main/orbital-ring">Source</a></p>
+</div></div>
+
+<div class="panel-wrap" id="roll" role="dialog" aria-modal="true" aria-labelledby="rollTitle"><div class="card rollcard">
+  <button class="close" data-close type="button" aria-label="Close">×</button>
+  <p class="eyebrow">YOUR ROLL</p><h2 id="rollTitle">Twelve exposures.</h2>
+  <p class="small" id="rollHint">Press P, or the shutter button, during the ride.</p>
+  <div class="strip" id="strip"></div>
+  <div class="actions"><button class="primary" id="saveRoll" type="button">Save the contact sheet</button></div>
+</div></div>
+
+<div class="boot" id="boot" role="status" aria-live="polite"><div class="boot-in">
+  <svg class="boot-mark" viewBox="0 0 40 40" fill="none" aria-hidden="true"><path d="M2 29C8 18 32 18 38 29" stroke="currentColor" stroke-width="1"/><path d="M20 38V20.6" stroke="currentColor" stroke-width="1"/><rect class="boot-car" x="17" y="28" width="6" height="7" rx="1.4" fill="currentColor"/></svg>
+  <h2>Boarding.</h2><p id="bootText">LOADING THE CAR</p><div class="bar"><i id="bootBar"></i></div>
+  <div class="fail" id="failBox"><p id="failText"></p><p><button class="primary" id="failStills" type="button">See the ride in seven stills</button></p><p class="small"><a href="/">More places we could build</a></p></div>
+</div></div>
+<div class="slides" id="slides" hidden><button class="close" id="slidesClose" type="button" aria-label="Close">×</button><img id="slideImg" alt=""><p id="slideCap"></p><div class="slide-nav"><button class="tool" id="slidePrev" type="button">← Lower</button><button class="tool" id="slideNext" type="button">Higher →</button></div></div>
+
+<script type="module" src="./intro.js"></script>
+</body>
+</html>
