@@ -3,31 +3,31 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#1c1527">
-<title>Four Hours Out — Computing on Triton</title>
-<meta name="description" content="A small computing campus on Neptune’s moon Triton, four light-hours from home. Long jobs, real clocks, a real sky. An imagined place by San Kala.">
+<meta name="theme-color" content="#0b1440">
+<title>A Moon That Thinks — Triton</title>
+<meta name="description" content="Fly to Neptune’s moon Triton and watch it become a mind. Watch an imagined moon-sized computer grow from one hall in 2050 to the whole moon by about 2087, powered by fusion, then walk among its radiators. True scale, drawn as cloisonné enamel. By San Kala.">
 <meta name="author" content="San Kala">
 <link rel="canonical" href="https://dysonswarm.com/triton/">
 <link rel="icon" type="image/svg+xml" href="./images/favicon.svg">
-<link rel="preload" href="./fonts/fredoka-600.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="./fonts/cinzel-700.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="./styles.css">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Dyson Swarm">
-<meta property="og:title" content="Four Hours Out — Computing on Triton">
-<meta property="og:description" content="A small computing campus on Neptune’s moon Triton. Send it a message now and the answer gets home in about eight hours.">
+<meta property="og:title" content="A Moon That Thinks — Triton">
+<meta property="og:description" content="Fly to Neptune’s moon and watch it become a mind. Then land and walk among the radiators.">
 <meta property="og:url" content="https://dysonswarm.com/triton/">
 <meta property="og:image" content="https://dysonswarm.com/triton/images/social-preview.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="A clay-model computing campus on a round plug of pink-white ice, with lit windows and radiator fins, under a huge pale blue Neptune.">
+<meta property="og:image:alt" content="Triton half lit in cloisonné enamel, its night side covered in a glowing gold network, with blue Neptune and its rings behind.">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Four Hours Out — Computing on Triton">
-<meta name="twitter:description" content="A small computing campus on Neptune’s moon Triton, four light-hours from home.">
+<meta name="twitter:title" content="A Moon That Thinks — Triton">
+<meta name="twitter:description" content="Fly to Neptune’s moon and watch it become a mind.">
 <meta name="twitter:image" content="https://dysonswarm.com/triton/images/social-preview.jpg">
-<meta name="twitter:image:alt" content="A clay-model computing campus on pink-white ice under a huge pale blue Neptune.">
+<meta name="twitter:image:alt" content="Triton in cloisonné enamel, its night side wired with glowing gold, Neptune behind.">
 </head>
 <body>
-<noscript><div class="static-fallback"><h1>Four Hours Out</h1><p>A small computing campus on Neptune’s moon Triton. Turn on JavaScript to visit it.</p><img src="./images/world-preview.jpg" alt="A clay-model computing campus on pink-white ice under a huge pale blue Neptune."><p><a href="/">More places</a> · <a href="https://sankala.me">San Kala</a></p></div></noscript>
+<noscript><div class="static-fallback"><h1>A moon that thinks</h1><p>Neptune’s moon Triton, turned into a computer. Turn on JavaScript to visit it.</p><img src="./images/world-preview.jpg" alt="Triton in cloisonné enamel with a gold network on its night side and Neptune behind."><p><a href="/">More places</a> · <a href="https://sankala.me">San Kala</a></p></div></noscript>
 
 <div class="still" aria-hidden="true">
   <picture>
@@ -35,108 +35,121 @@
     <img src="./images/world-preview.jpg" alt="" fetchpriority="high">
   </picture>
 </div>
-<canvas id="world" tabindex="0" aria-label="A clay model of a computing campus on Triton. Drag to turn it, scroll or pinch to zoom, click a building to read about it."></canvas>
+<canvas id="world" tabindex="0" aria-label="Triton, Neptune’s moon, turned into a computer. In orbit: drag to turn, scroll to zoom, click the moon to land. On the ground: drag to look, W A S D to move."></canvas>
+<div id="veil"></div>
 
 <header class="top">
   <a class="mark" href="/" aria-label="Dyson Swarm, the collection">
-    <svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="17" cy="21" r="12" fill="#a9d0da"/><path d="M17 9a12 12 0 0 1 0 24a8 12 0 0 0 0-24z" fill="#5e7f95" opacity=".55"/><circle cx="32" cy="10" r="3.6" fill="#f2e3df"/><circle cx="31" cy="10.6" r="1.1" fill="#f0b45a"/></svg>
-    <span><b>Four Hours Out</b><small>Dyson Swarm ↗ · by San Kala</small></span>
+    <svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="17" fill="#13205a" stroke="#d9b45a" stroke-width="2"/><path d="M20 3a17 17 0 0 1 0 34a9 17 0 0 0 0-34z" fill="#f2cfc8" stroke="#d9b45a" stroke-width="1.4"/><path d="M9 14l5 3 3 6M14 17l-4 6M17 23l-3 6" fill="none" stroke="#f3cf6e" stroke-width="1.5" stroke-linecap="round"/></svg>
+    <span><b>A Moon That Thinks</b><small>Dyson Swarm ↗ · by San Kala</small></span>
   </a>
   <nav class="tools" aria-label="Controls">
-    <button class="pill" id="lapseBtn" type="button" aria-pressed="false" title="Run Triton’s clock fast (T)">Time-lapse</button>
-    <button class="pill" id="earthBtn" type="button" aria-pressed="false" title="Show Triton as light reaching Earth now shows it, about four hours old (E)">As Earth sees it</button>
-    <button class="pill desk" id="photoBtn" type="button" title="Save a picture (P)">Photo</button>
+    <button class="pill" id="landBtn" type="button" title="Land on Triton, or go back to orbit (L / O)">Land</button>
+    <button class="pill" id="flyBtn" type="button" hidden title="Fly or walk (F)">Fly</button>
+    <button class="pill" id="atlasBtn" type="button" title="Map of Triton (M)">Atlas</button>
     <button class="pill desk" id="qualityBtn" type="button" title="Rendering quality">Quality: auto</button>
-    <button class="pill" id="notesBtn" type="button" title="Notes and sources (N)">Notes</button>
+    <button class="pill desk" id="photoBtn" type="button" title="Save a picture (P)">Photo</button>
+    <button class="pill round" id="helpBtn" type="button" aria-label="Notes and controls (?)">?</button>
   </nav>
 </header>
 
 <section class="intro" id="intro" aria-labelledby="introTitle">
-  <p class="eyebrow">Computing on Triton, Neptune’s largest moon</p>
-  <h1 id="introTitle">Four hours out.</h1>
-  <p class="lede">A small computing campus on Neptune’s moon. It runs the work that can wait: long training runs, slow simulations, a copy of our libraries.</p>
-  <p class="live" id="introLive">A message sent from Earth now arrives <b id="introArrive">…</b>. The answer reaches home <b id="introHome">…</b>.</p>
+  <p class="eyebrow">Triton, Neptune’s largest moon</p>
+  <h1 id="introTitle">A moon that thinks.</h1>
+  <p class="lede">Stand on Neptune’s moon among the radiators of a mind. Then go up and watch it grow from one hall in 2050 to the whole moon by about 2087.</p>
   <div class="actions">
-    <button class="go" id="enter" type="button">Go to Triton <span aria-hidden="true">↗</span></button>
+    <button class="go" id="enter" type="button">Land on Triton <span aria-hidden="true">↗</span></button>
     <button class="ghost" id="introNotes" type="button">What’s real?</button>
   </div>
-  <p class="micro">Imagined, not planned. The sky and the clocks are real.<br>Built in your browser. Needs WebGL2.</p>
+  <p class="micro"><span id="introDelay">Triton is about four light-hours from Earth.</span><br>The machine is imagined; Triton, its sky and its distance are real. Built in your browser; needs WebGL2.</p>
 </section>
 
-<aside class="board" id="board" aria-label="Light delay and what the halls are doing">
-  <div class="strip" aria-hidden="true"><span class="end earth">Earth</span><div class="track" id="flight"></div><span class="end triton">Triton</span></div>
-  <p class="flight-note"><span id="ltSpan">4 h</span> of light each way · <span id="ltAu">29</span> AU · <span id="flightCount"></span></p>
-  <p class="delay">A message sent from Earth now arrives <b id="arrive">…</b>.</p>
-  <p class="delay">The answer reaches home <b id="home">…</b>.</p>
-  <button class="board-toggle" id="boardToggle" type="button" aria-expanded="false" aria-controls="boardMore">Halls <span aria-hidden="true">▾</span></button>
-  <div class="more" id="boardMore">
-    <ul class="halls" id="halls"></ul>
-    <p class="sky" id="skyLine"></p>
-    <p class="hello"><span id="helloLine"></span> <button class="link" id="helloBtn" type="button">Send a hello</button></p>
+<aside class="mind" id="mind" aria-label="Grow the mind">
+  <div class="mind-row">
+    <button class="grow" id="growBtn" type="button" aria-pressed="false">Grow</button>
+    <label class="year"><span id="yearOut">2087</span><input id="year" type="range" min="0" max="600" step="1" value="560" aria-label="Year, from the first hall in 2050 to 2090"></label>
   </div>
+  <dl class="figures">
+    <div><dt>Radiators</dt><dd id="nArea">—</dd></div>
+    <div><dt>Fusion power</dt><dd id="nHeat">—</dd></div>
+    <div><dt>× all human power</dt><dd id="nHuman">—</dd></div>
+    <div><dt>Operations a second</dt><dd id="nCompute">—</dd></div>
+    <div><dt>× biggest AI cluster today</dt><dd id="nAI">—</dd></div>
+    <div><dt>Of the surface</dt><dd id="nShare">—</dd></div>
+  </dl>
+  <p class="foot">Power: fusion. The white fins are radiators. Imagined numbers, worked out from the fins on screen. <button class="link" type="button" data-open-notes>How?</button></p>
 </aside>
 
-<aside class="card" id="card" tabindex="-1" aria-live="polite" aria-label="About this building">
-  <button class="close" id="cardClose" type="button" aria-label="Close">×</button>
-  <div id="cardBody"></div>
-</aside>
+<div class="hud" aria-live="off"><span id="where">—</span><span id="alt">—</span><button class="sky" id="sky" type="button" title="Switch between today’s sky and the half-lit view">Sky: now</button><span id="delay" class="delay"></span></div>
+<div class="tags" aria-hidden="true"><span class="tag" id="tagPlant"><b>Fusion plant</b><small>the power</small></span><span class="tag" id="tagFins"><b>Radiators</b><small>waste heat, glowing away</small></span></div>
+<p class="hint" id="hint">Drag to turn · scroll to zoom · click anywhere on Triton to land</p>
+<div class="touch-controls" aria-hidden="true"><div id="stick"><div id="knob"></div></div><div class="touch-buttons"><button id="upBtn" type="button" aria-label="Up">↑</button><button id="downBtn" type="button" aria-label="Down">↓</button></div></div>
 
-<div class="chip lapse-chip" role="status"><span id="lapseText">Time-lapse</span> <button class="link" id="lapseBack" type="button">Back to now</button></div>
-<div class="chip earth-chip" role="status"><span id="earthText">As Earth sees it</span> <button class="link" id="earthBack" type="button">Show now</button></div>
-<p class="hint" id="hint">Drag to turn · scroll or pinch to zoom · click a hall</p>
+<div class="overlay" id="atlas" role="dialog" aria-modal="true" aria-labelledby="atlasTitle">
+  <div class="panel">
+    <button class="close" data-close type="button" aria-label="Close the atlas">×</button>
+    <p class="eyebrow">Atlas</p>
+    <h2 id="atlasTitle">Triton, unrolled.</h2>
+    <p>Click anywhere to land there. Gold lines are the mind as far as it has grown; red patches are radiator fields.</p>
+    <canvas id="map" width="720" height="360" aria-label="Map of Triton. Click to land."></canvas>
+    <div class="places">
+      <button type="button" data-go="landing">The first landing: 60° S, Neptune due north</button>
+      <button type="button" data-go="dish">The dish that sends results home</button>
+      <button type="button" data-go="geyser">A geyser on the polar cap</button>
+      <button type="button" data-go="night">A field where it’s night</button>
+    </div>
+    <p class="small">Voyager 2 saw about 40% of Triton well in 1989, mostly the half facing Neptune and the southern cap. The rest of this map follows the same patterns but is a guess.</p>
+  </div>
+</div>
 
 <div class="overlay" id="notes" role="dialog" aria-modal="true" aria-labelledby="notesTitle">
-  <div class="panel">
-    <button class="close" data-close type="button" aria-label="Close notes">×</button>
+  <div class="panel wide">
+    <button class="close" data-close type="button" aria-label="Close the notes">×</button>
     <p class="eyebrow">Notes</p>
     <h2 id="notesTitle">What’s real here, and what isn’t.</h2>
     <div class="cols">
       <section>
         <h3>What this is</h3>
-        <p>A place I imagined: a small computing campus on Triton, Neptune’s largest moon. Nobody is planning it. The halls, the jobs and the caretaker are made up. The sky, the light delay and the clocks are real, worked out from the time on your device.</p>
-        <h3>Why put computers out here?</h3>
-        <p>Some work doesn’t need a quick answer. A training run takes weeks. A climate ensemble takes a month. If the answer can wait, the computer can be far away, and four light-hours is far.</p>
-        <p>The cold is interesting too. The least energy needed to erase one bit is <i>kT</i> ln 2 (Landauer’s limit), and it falls with temperature. Triton’s surface is about 38 K, so the limit there is about eight times lower than at room temperature: 3.6 × 10⁻²² J instead of 2.9 × 10⁻²¹ J. Today’s chips use thousands of times more than the limit, so this is a far horizon, not today’s reason.</p>
-        <p>Some things work better in the cold now. Many superconductors work at Triton’s temperature (YBCO below 93 K, MgB₂ only just, below 39 K), so power cables could lose almost nothing.</p>
-        <h3>Why it’s hard</h3>
-        <p>The cold doesn’t make cooling easy. There is almost no air, about 14 microbars when Voyager 2 passed, so heat can only leave as infrared light. A radiator gives off about 460 W per square metre at 300 K, and about 0.12 W at 38 K. So the halls run warm and wear big fins.</p>
-        <p>You can’t run the chips at 38 K and shed the heat at 38 K either: the radiators would need to be thousands of times bigger. Pumping the heat up to a warmer radiator costs energy, which gives back most of the Landauer saving. Thermodynamics is strict about this.</p>
-        <p>Sunlight is about 1/900 of Earth’s, so the power has to be nuclear. And light takes four hours each way. Nothing interactive can live here: no chat, no search. Only jobs that can wait. Voyager 2 took twelve years to get to Neptune.</p>
+        <p>A computer the size of a moon, imagined on Triton. It starts in 2050 as one hall beside a dish near the south pole and grows for under forty years, until by about 2087 trunk lines run over the whole moon and radiator fields stand along them. You arrive on the ground at the first landing field; go back to orbit and drag the year to watch it grow.</p>
+        <p><b>Power: fusion</b> (fuel from Triton’s ice and Neptune’s air). <b>The white fins are radiators</b>, dumping waste heat into a 38 K sky. The domes beside each avenue are the fusion plants.</p>
+        <p>The gold wire is the mind. In daylight every shape gets its wire, like the enamel it’s drawn as. At night only the network keeps its gold, and the pulses on it are results heading home to the dish.</p>
+        <h3>What’s real</h3>
+        <p>Triton is 2,707 km across. It keeps one face to Neptune and goes round it backwards. The ground is about 38 K (−235 °C) under a thin nitrogen air, about 14 millionths of Earth’s. Gravity is 0.78 m/s², about a twelfth of ours, so the horizon is only 2.3 km away when you stand up.</p>
+        <p>The pink-white south polar cap, the dark streaks across it, the dimpled “cantaloupe” ground (cells 25–35 km across), the smoother plains and the blue band at the cap’s edge are all from Voyager 2’s pictures in 1989. So are the geysers: columns of nitrogen and dust that rise about 8 km, then trail more than 100 km downwind. Voyager saw only about 40% of Triton well. The rest here follows the same patterns but is a guess.</p>
+        <p>The sky is worked out for today’s date. From the landing site Neptune hangs 30° up, due north, 8° across, and never moves. The Sun goes round once every 5 days 21 hours; at this season it never sets near the south pole. Earth is about four light-hours away. You arrive at the next moment the Sun stands about 27° up over the landing site (within six days), so the ice and the fins are lit and Neptune is about half lit; the Sky line under the place name says when that is, and switches to today’s sky.</p>
       </section>
       <section>
-        <h3>The sky</h3>
-        <p>Triton keeps one face to Neptune, so from the campus Neptune stays in one place, about 8° above the horizon and 8° wide, roughly fifteen times the width of the full Moon. Over 5.9 days it fills and thins as the Sun goes round.</p>
-        <p>Triton orbits backwards, against Neptune’s spin, so here the Sun rises in the west. These years the Sun stays far south, so Neptune never goes fully dark or fully lit (this year, between about 6% and 94%).</p>
-        <p>Sunlight here is 1/900 of Earth’s. That is still hundreds of times brighter than a full Moon, but only about as bright as a dim room, so days look like a bright dusk with sharp shadows, and lit windows glow even at noon. Neptune-light at night is about as bright as a full Moon on Earth.</p>
-        <p>Neptune is drawn in its true pale blue, following Patrick Irwin and colleagues’ 2024 rebalancing of Voyager and Hubble images; older pictures were contrast-stretched to a deeper blue. The model sits in front of the sky like a painted backdrop so you can see Neptune behind it. From the ground it would be just above the horizon, in the same direction.</p>
-        <h3>The ground</h3>
-        <p>Pink-white nitrogen frost of the south polar cap, and the dimpled “cantaloupe terrain” Voyager 2 photographed. The geyser and its dark streaks are like the ones Voyager saw, drawn much smaller. The cut side is a guess at what’s underneath: a thin pinkish layer, then water ice as hard as rock.</p>
+        <h3>What’s imagined</h3>
+        <p>The whole machine: the dish, the halls, the radiators, the network and the numbers. Nobody is planning it.</p>
         <h3>How the numbers are worked out</h3>
-        <p>Light delay: Earth and Neptune from JPL’s approximate planetary orbits, checked against JPL Horizons (within a second for 2026–27). The Sun and Neptune in Triton’s sky: Triton’s 5.876-day cycle and the Sun’s latitude, fitted to Horizons for 2020–2040. The jobs are invented but run on the real clock, so everyone visiting at the same moment sees the same thing.</p>
-        <h3>The names</h3>
-        <p>The halls are named for Le Verrier and Adams, who calculated where Neptune had to be; Galle, who found it on 23 September 1846; and Lassell, a brewer with a home-made telescope, who found Triton seventeen days later.</p>
+        <p><b>Power is set by the radiators.</b> Sunlight out here is 1/900 of Earth’s, so the power is fusion: deuterium from Triton’s water ice, and deuterium and helium-3 from Neptune’s air. Every watt of it ends up as heat, and in a vacuum the only way to lose heat is to glow. So the fins decide how much power the moon can use.</p>
+        <p><b>Each fin face sheds about 270 W/m².</b> The fins run warm, at 330 K (57 °C). A surface that warm, with emissivity 0.9, glows away εσT⁴ ≈ 605 W per square metre. But the fins stand 390 m tall in rows 250 m apart, so the next row fills about 55% of each face’s view (for parallel plates that share is √(1+(250/390)²) − 250/390), and heat sent there comes straight back. About 45% escapes: ≈ 272 W/m², on both faces of every panel.</p>
+        <p><b>Fusion power = fin area × 272 W/m².</b> Each square metre of field holds about 2.7 m² of panel face. At full size, about 2087, that is 2.5 million km² of panel face shedding about 0.68 PW: 36 times all the power humanity uses today (about 19 TW).</p>
+        <p><b>Compute = electricity ÷ energy per operation.</b> The plants turn about half their heat into electricity. The logic is superconducting and reversible, and this is where the cold helps. Erasing a bit costs at least kT·ln 2, which is 3.6×10⁻²² J at Triton’s 38 K, eight times less than at room temperature. Superconducting wire, which carries signals without loss, works here with no refrigerator, because some superconductors keep working up to 92 K. I assume the 2080s logic spends 10⁻²⁰ J per operation all in, including keeping it cold: about 30 times that floor. Today’s best AI chips spend about 10⁻¹² J. So at full size: 0.34 PW ÷ 10⁻²⁰ J ≈ 3×10³⁴ operations a second, about 10¹⁴ times today’s largest AI clusters (around 10²⁰ a second).</p>
+        <p>At full size the machine sheds about 330 times as much heat as Triton gets from the Sun. A real one would warm its own ice and air, and would have to deal with that.</p>
+        <p>Some things are drawn bigger than life so they read. Neptune’s rings are far more visible than they really are. From orbit, the enamel cells and the trunk lines are enlarged. The glow and the pulses show where computation flows; real cables don’t glow. The pulses are slowed down enormously: a real signal would cross Triton in about 21 thousandths of a second.</p>
+        <h3>Why Triton?</h3>
+        <p>A computer only needs to be close if someone is waiting for it. Long jobs can wait four hours for a question and four more for the answer. Out here there’s room, cold and quiet.</p>
         <h3>Controls</h3>
-        <p>Drag to turn, scroll or pinch to zoom, click a building. Keys: arrows or WASD turn, + and − zoom, 1–4 halls, T time-lapse, E as Earth sees it, P photo, H hide the interface, R reset, Esc close.</p>
+        <p><b>In orbit:</b> drag to turn, scroll or pinch to zoom, click Triton to land. <b>On the ground:</b> click to look with the mouse (or drag), W A S D to move, Shift to bound, Space to jump, F to fly, Space and Q to climb and sink, scroll for flying speed, O for orbit. <b>Anywhere:</b> G grows the mind, M opens the atlas, P saves a picture, H hides the interface. On a phone, use the left pad to move and drag to look.</p>
       </section>
     </div>
     <h3>Sources</h3>
     <ul class="sources">
+      <li>Smith et al., “Voyager 2 at Neptune: imaging science results”, <i>Science</i> 246 (1989). <a href="https://doi.org/10.1126/science.246.4936.1422">doi</a></li>
       <li>Soderblom et al., “Triton’s geyser-like plumes: discovery and basic characterization”, <i>Science</i> 250 (1990). <a href="https://doi.org/10.1126/science.250.4979.410">doi</a></li>
       <li>Conrath et al., “Infrared observations of the Neptunian system”, <i>Science</i> 246 (1989), Triton’s 38 K surface. <a href="https://doi.org/10.1126/science.246.4936.1454">doi</a></li>
       <li>Tyler et al., “Voyager radio science observations of Neptune and Triton”, <i>Science</i> 246 (1989), Triton’s thin atmosphere. <a href="https://doi.org/10.1126/science.246.4936.1466">doi</a></li>
-      <li>Landauer, “Irreversibility and heat generation in the computing process”, <i>IBM J. Res. Dev.</i> 5 (1961). <a href="https://doi.org/10.1147/rd.53.0183">doi</a> · Bérut et al., its measurement, <i>Nature</i> 483 (2012). <a href="https://doi.org/10.1038/nature10872">doi</a></li>
-      <li>Irwin et al., “Modelling the seasonal cycle of Uranus’s colour and magnitude, and comparison with Neptune”, <i>MNRAS</i> 527 (2024). <a href="https://doi.org/10.1093/mnras/stad3761">doi</a></li>
-      <li>McClure et al., “Kilopower project: the KRUSTY fission power experiment and potential missions”, <i>Nuclear Technology</i> 206 (2020). <a href="https://doi.org/10.1080/00295450.2020.1722554">doi</a></li>
-      <li>Wu et al. (1987), superconductivity at 93 K in YBCO. <a href="https://doi.org/10.1103/PhysRevLett.58.908">doi</a> · Nagamatsu et al. (2001), at 39 K in MgB₂. <a href="https://doi.org/10.1038/35065039">doi</a></li>
-      <li>JPL: <a href="https://ssd.jpl.nasa.gov/horizons/">Horizons</a> and <a href="https://ssd.jpl.nasa.gov/planets/approx_pos.html">approximate planetary positions</a> · NASA: <a href="https://science.nasa.gov/neptune/moons/triton/">Triton</a></li>
+      <li>Irwin et al., “Modelling the seasonal cycle of Uranus’s colour and magnitude, and comparison with Neptune”, <i>MNRAS</i> 527 (2024), Neptune’s true colour. <a href="https://doi.org/10.1093/mnras/stad3761">doi</a></li>
+      <li>JPL: <a href="https://ssd.jpl.nasa.gov/horizons/">Horizons</a> (the Sun and Neptune in Triton’s sky) and <a href="https://ssd.jpl.nasa.gov/planets/approx_pos.html">approximate planetary positions</a> (light time) · NASA: <a href="https://science.nasa.gov/neptune/moons/triton/">Triton</a></li>
     </ul>
-    <p class="sign">An experiment by <a href="https://sankala.me">San Kala</a>, built with Claude. No tracking, no account; everything is made in your browser. <a href="/">More places ↗</a> · <a href="https://www.youtube.com/@paperrobotsfilms">Paper Robots films</a> · <a href="https://github.com/spsanps/dysonswarm/tree/main/triton">Source</a></p>
+    <p class="sign">An experiment by <a href="https://sankala.me">San Kala</a>, made with Claude. No tracking, no account; everything is made in your browser. <a href="/">More places ↗</a> · <a href="https://www.youtube.com/@paperrobotsfilms">Paper Robots films</a> · <a href="https://github.com/spsanps/dysonswarm/tree/main/triton">Source</a></p>
   </div>
 </div>
 
 <div class="boot" id="boot" role="status">
-  <div class="orrery" aria-hidden="true"><i></i><b></b></div>
-  <h2 id="bootTitle">Building the campus.</h2>
+  <div class="gem" aria-hidden="true"><i></i></div>
+  <h2 id="bootTitle">Growing Triton.</h2>
   <p id="bootText">Starting</p>
   <div class="bar-track"><i id="bootBar"></i></div>
   <p class="fail-actions" id="failActions" hidden><button class="go" id="failNotes" type="button">Read the notes</button> <a href="/">More places ↗</a></p>

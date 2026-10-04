@@ -1,47 +1,38 @@
-// The intro page: a still from the real renderer, the light-delay line, and Enter.
-// No renderer loads until the visitor chooses to go.
-import { delayLines, when } from './astro.js';
-import { openDialog, closeDialog } from './dialog.js';
+// The front page: a still from the real renderer, the light-delay line, and the notes.
+// The renderer loads only when the visitor presses Enter.
+import { lightTime, span } from './astro.js';
 
 const $ = id => document.getElementById(id);
-const params = new URLSearchParams(location.search);
-const fixed = params.get('date') ? Date.parse(params.get('date')) : null;
+const lt = lightTime(Date.now());
+$('introDelay').textContent = `Today Triton is ${span(lt.ms)} from Earth by light.`;
 
-function tick() {
-  const now = fixed ?? Date.now();
-  const d = delayLines(now);
-  $('introArrive').textContent = when(d.arrive, now);
-  $('introHome').textContent = when(d.home, now);
-}
-tick();
-setInterval(tick, 15000);
+let opener = null;
+function openNotes() { opener = document.activeElement; $('notes').classList.add('open'); $('notes').querySelector('.close').focus(); }
+function closeAll() { document.querySelectorAll('.overlay.open').forEach(el => el.classList.remove('open')); if (opener && opener.focus) opener.focus(); }
+$('introNotes').addEventListener('click', openNotes);
+$('failNotes').addEventListener('click', openNotes);
+document.querySelectorAll('[data-open-notes]').forEach(b => b.addEventListener('click', openNotes));
+document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', closeAll));
+document.querySelectorAll('.overlay').forEach(el => el.addEventListener('pointerdown', e => { if (e.target === el) closeAll(); }));
+addEventListener('keydown', e => { if (e.key === 'Escape') closeAll(); });
 
-let entering = false;
+let entered = false;
 async function enter() {
-  if (entering) return;
-  entering = true;
-  document.body.classList.add('entering');
-  $('enter').disabled = true;
+  if (entered) return;
+  entered = true;
+  document.body.classList.add('entered');
   try {
     const app = await import('./app.js');
     await app.start();
   } catch (e) {
     console.error(e);
     document.body.classList.add('failed');
-    $('boot').classList.add('show');
-    $('bootTitle').textContent = 'The window wouldn’t open.';
-    $('bootText').textContent = 'Something went wrong while loading: ' + e.message;
+    $('bootTitle').textContent = 'Triton can’t open here.';
+    $('bootText').textContent = 'The 3D part didn’t load. The notes still work.';
     $('failActions').hidden = false;
-    window.__ready = true; window.__error = String(e);
+    window.__ready = true;
   }
 }
 $('enter').addEventListener('click', enter);
-$('introNotes').addEventListener('click', () => openDialog('notes'));
-$('failNotes').addEventListener('click', () => openDialog('notes'));
-document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', closeDialog));
-document.querySelectorAll('.overlay').forEach(o => o.addEventListener('click', e => { if (e.target === o) closeDialog(); }));
-addEventListener('keydown', e => { if (e.key === 'Escape' && document.querySelector('.overlay.open')) closeDialog(); });
-if (params.get('notes') === '1') openDialog('notes');
-if (params.get('board') === '1') document.body.classList.add('board-open');
-if (params.get('enter') === '1') enter();
+if (new URLSearchParams(location.search).has('enter')) enter();
 else window.__ready = true;

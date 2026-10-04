@@ -1,316 +1,252 @@
-// The renderer: shadow map, the model, the backdrop, then shallow focus and a little glow.
-import { compile, uploadMesh, setInstances, updateInstances, texture, target, freeTarget, m4, v3 } from './gl.js';
-import * as S from './shaders.js';
-import * as W from './world.js';
-import { icosphere } from './meshes.js';
+// The renderer: a G-buffer of light and cell ids, then cloisonné enamel made from it.
+import * as G from './gl.js';
+import * as SH from './shaders.js';
+import { R, CELL, V, NEP_DIST, NEP_R, heightAt, tangentFrame } from './world.js';
+import { DISH, GEYSERS } from './machine.js';
 
-export const QUALITY = {
-  high: { scale: 2, msaa: 4, shadow: 2048, taps: 32, glow: true, shadowTaps: 12 },
-  medium: { scale: 1.5, msaa: 4, shadow: 2048, taps: 24, glow: true, shadowTaps: 10 },
-  low: { scale: 1, msaa: 0, shadow: 1024, taps: 14, glow: false, shadowTaps: 6 },
-};
-
-function noise3D(gl) {
-  // Four independent tileable value noises in one 32³ texture.
-  const N = 32, P = 8, cell = N / P;
-  // A fixed seed, so every visitor's clay has the same thumbprints.
-  let s = 12345; const rnd = () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
-  const lat = [];
-  for (let c = 0; c < 4; c++) { const a = new Float32Array(P * P * P); for (let i = 0; i < a.length; i++) a[i] = rnd(); lat.push(a); }
-  const data = new Uint8Array(N * N * N * 4);
-  const sm = t => t * t * (3 - 2 * t);
-  for (let z = 0; z < N; z++) for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    const fx = x / cell, fy = y / cell, fz = z / cell;
-    const x0 = Math.floor(fx), y0 = Math.floor(fy), z0 = Math.floor(fz);
-    const tx = sm(fx - x0), ty = sm(fy - y0), tz = sm(fz - z0);
-    const X0 = x0 % P, X1 = (x0 + 1) % P, Y0 = y0 % P, Y1 = (y0 + 1) % P, Z0 = z0 % P, Z1 = (z0 + 1) % P;
-    for (let c = 0; c < 4; c++) {
-      const L = lat[c], g = (a, b, d) => L[(d * P + b) * P + a];
-      const l = (a, b, t) => a + (b - a) * t;
-      const v = l(l(l(g(X0, Y0, Z0), g(X1, Y0, Z0), tx), l(g(X0, Y1, Z0), g(X1, Y1, Z0), tx), ty), l(l(g(X0, Y0, Z1), g(X1, Y0, Z1), tx), l(g(X0, Y1, Z1), g(X1, Y1, Z1), tx), ty), tz);
-      data[((z * N + y) * N + x) * 4 + c] = Math.round(v * 255);
-    }
-  }
-  const t = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_3D, t);
-  gl.texImage3D(gl.TEXTURE_3D, 0, gl.RGBA8, N, N, N, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
-  gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  for (const w of [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T, gl.TEXTURE_WRAP_R]) gl.texParameteri(gl.TEXTURE_3D, w, gl.REPEAT);
-  return t;
-}
+const F32 = new Float32Array(1);
+const fround = x => { F32[0] = x; return F32[0]; };
 
 export class Renderer {
   constructor(gl) {
     this.gl = gl;
-    this.q = QUALITY.medium;
-    this.items = [];
-    this.stats = { frameMs: 0 };
-  }
-
-  async build(progress) {
-    const gl = this.gl;
-    const tick = () => new Promise(r => setTimeout(r, 0));
-    progress('Rolling out the ice', 8); await tick();
-    this.noise = noise3D(gl);
-    const terrain = W.terrainMesh();
-    progress('Pressing out the halls', 26); await tick();
-    const { props, halls } = W.buildObjects();
-    progress('Sanding the edges', 52); await tick();
-    const ground = W.bakeGround(384);
-    this.groundTex = texture(gl, ground.N, ground.N, { data: ground.data, mip: true });
-    this.groundS = ground.S;
-    progress('Teasing out the smoke', 70); await tick();
-
-    const I = m4.ident();
-    const add = (mesh, instances, opts = {}) => {
-      const m = uploadMesh(gl, mesh.done ? mesh.done() : mesh);
-      setInstances(gl, m, instances);
-      const it = { m, ...opts };
-      this.items.push(it);
-      return it;
+    const P = (vs, fs, n) => G.program(gl, vs, fs, n);
+    const FS = SH.FULLSCREEN_VS;
+    this.p = {
+      region: P(FS, SH.REGION_FS, 'region'), sky: P(FS, SH.SKY_FS, 'sky'),
+      terrain: P(SH.TERRAIN_VS, SH.TERRAIN_FS, 'terrain'), inst: P(SH.INST_VS, SH.INST_FS, 'instances'),
+      lattice: P(SH.LATTICE_VS, SH.LATTICE_FS, 'lattice'), dish: P(SH.DISH_VS, SH.DISH_FS, 'dish'),
+      geyser: P(FS, SH.GEYSER_FS, 'geysers'), base: P(FS, SH.ENAMEL_BASE, 'enamel'), seed: P(FS, SH.SEED_FS, 'wire seeds'),
+      jfa: P(FS, SH.JFA_FS, 'wire'), blur: P(FS, SH.BLUR_FS, 'glow'), final: P(FS, SH.ENAMEL_FINAL, 'finish'),
     };
-    add(terrain, [{ model: I }], { name: 'terrain' });
-    add(props, [{ model: I }], { name: 'props' });
-    this.halls = halls.map(h => add(h.mesh, [{ model: h.model, colour: h.colour, params: h.params }], { name: 'hall' }));
-    this.dish = add(W.dishHeadMesh(), [{ model: I }], { name: 'dish' });
-    const parts = W.personParts();
-    this.person = {};
-    for (const [k, mesh] of Object.entries(parts)) {
-      const n = (k === 'arm' || k === 'leg' || k === 'boot') ? 2 : 1;
-      this.person[k] = add(mesh, new Array(n).fill(0).map(() => ({ model: I })), { name: 'person-' + k });
-    }
-    const puff = icosphere(2);
-    for (let k = 0; k < puff.e.length; k += 4) { puff.e[k] = W.MAT.PUFF; puff.e[k + 3] = W.IDS.GEYSER; }
-    this.puffs = add(puff, new Array(W.PUFF_COUNT).fill(0).map((_, i) => ({ model: I, colour: [0.5, 0, 0, 1], params: [W.IDS.GEYSER, i * 0.731, 0, 0] })), { name: 'puffs' });
-
-    progress('Mixing the paint', 84); await tick();
-    this.scene = compile(gl, S.SCENE_VS, S.SCENE_FS, 'scene');
-    this.shadowProg = compile(gl, S.SHADOW_VS, S.SHADOW_FS, 'shadow');
-    this.sky = compile(gl, S.QUAD_VS, S.SKY_FS, 'sky');
-    this.dof = compile(gl, S.QUAD_VS, S.DOF_FS, 'dof');
-    this.glow = compile(gl, S.QUAD_VS, S.GLOW_FS, 'glow');
-    this.comp = compile(gl, S.QUAD_VS, S.COMPOSITE_FS, 'composite');
-    this.emptyVao = gl.createVertexArray();
-    progress('Setting the lights', 94); await tick();
+    this.empty = gl.createVertexArray();
+    this.cube = this.makeCube();
+    this.dish = this.makeDish();
+    this.dome = this.makeDome();
+    this.strip = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.strip);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, 0, 1, 0, -1, 1, 1, 1]), gl.STATIC_DRAW);
+    this.inst = null; this.lat = null;
   }
-
-  setQuality(name, w, h, dpr) {
-    this.qName = name;
-    this.q = QUALITY[name];
-    this.resize(w, h, dpr, true);
-  }
-
-  resize(cssW, cssH, dpr, force) {
-    const gl = this.gl;
-    const scale = Math.min(dpr, this.q.scale);
-    // keep the pixel count sane on big screens
-    let s = scale;
-    const maxPx = this.q === QUALITY.high ? 4.2e6 : (this.q === QUALITY.medium ? 2.6e6 : 1.4e6);
-    if (cssW * cssH * s * s > maxPx) s = Math.sqrt(maxPx / (cssW * cssH));
-    const w = Math.max(2, Math.round(cssW * s)), h = Math.max(2, Math.round(cssH * s));
-    if (!force && this.w === w && this.h === h) return;
-    this.w = w; this.h = h; this.pxScale = s;
-    gl.canvas.width = w; gl.canvas.height = h;
-    freeTarget(gl, this.main); freeTarget(gl, this.half); freeTarget(gl, this.quarter);
-    const samples = Math.min(this.q.msaa, gl.getParameter(gl.MAX_SAMPLES) || 0);
-    this.main = target(gl, w, h, samples, true);
-    this.half = target(gl, Math.max(1, w >> 1), Math.max(1, h >> 1), 0, false);
-    this.quarter = target(gl, Math.max(1, w >> 2), Math.max(1, h >> 2), 0, false);
-    const size = this.q.shadow;
-    if (!this.shadow || this.shadow.size !== size) {
-      if (this.shadow) { gl.deleteTexture(this.shadow.tex); gl.deleteFramebuffer(this.shadow.fb); }
-      const tex = texture(gl, size, size, { depth: true });
-      const fb = gl.createFramebuffer();
-      gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
-      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, tex, 0);
-      gl.drawBuffers([gl.NONE]); gl.readBuffer(gl.NONE);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-      this.shadow = { tex, fb, size };
-    }
-  }
-
-  // Dynamic objects ------------------------------------------------------------
-  updatePuffs(t, step) {
-    const m = this.puffs.m, d = m.data;
-    for (let i = 0; i < W.PUFF_COUNT; i++) {
-      const p = W.puffAt(i, t);
-      const s = Math.max(0.0001, p.size);
-      d.set(m4.trs([p.x, p.y, p.z], i * 1.7 + step * 0.0, s, i * 0.9, i * 2.3), i * 24);
-      d[i * 24 + 16] = p.dark;
-      d[i * 24 + 17] = p.opacity;
-      d[i * 24 + 21] = i * 0.731 + Math.floor(step / 3) * 0.05 * ((i % 3) - 1);
-    }
-    updateInstances(this.gl, m);
-  }
-  updateDish(dir) {
-    // Point the bowl along dir, pivoting above the pedestal.
-    const y = v3.norm(dir);
-    const ref = Math.abs(y[1]) < 0.95 ? [0, 1, 0] : [1, 0, 0];
-    const x = v3.norm(v3.cross(ref, y)), z = v3.cross(x, y);
-    const m = this.dish.m;
-    m.data.set(m4.basis(x, y, z, [W.DISH.x, 1.78, W.DISH.z]), 0);
-    updateInstances(this.gl, m);
-  }
-  updatePerson(c, groundY) {
-    const P = this.person;
-    const hide = !c.visible;
-    const S = 0.78;
-    const base = m4.mul(m4.trs([c.x || 0, (groundY || 0) + (hide ? -50 : 0), c.z || 0], c.dir || 0), m4.trs([0, 0, 0], 0, S));
-    const ph = c.phase || 0;
-    const swing = c.walking ? Math.sin(ph) * 0.5 : 0;
-    const bob = c.walking ? Math.abs(Math.cos(ph)) * 0.025 : (c.sitting ? 0 : 0);
-    let hipY = 0.3, torsoY = 0.47, legAng = [swing, -swing], legFwd = 0;
-    if (c.sitting) { hipY = 0.33 / S + 0.02; torsoY = hipY + 0.17; legAng = [-1.25, -1.25]; legFwd = 0; }
-    const breathe = c.sitting ? Math.sin((c.breathe || 0) * 1.3) * 0.01 : 0;
-    const set = (item, k, mat) => { item.m.data.set(mat, k * 24); };
-    const B = m4.mul(base, m4.trs([0, bob, 0]));
-    set(P.torso, 0, m4.mul(B, m4.trs([0, torsoY + breathe, 0], 0, 1, c.sitting ? -0.08 : 0)));
-    const look = c.looking ? 0.15 : (c.sitting ? -0.18 : 0);
-    set(P.helmet, 0, m4.mul(B, m4.trs([0, torsoY + 0.32 + breathe, 0.0])));
-    set(P.visor, 0, m4.mul(B, m4.trs([0, torsoY + 0.33 + breathe, 0.1], 0, 1, look)));
-    set(P.pack, 0, m4.mul(B, m4.trs([0, torsoY + 0.03, -0.15])));
-    for (let k = 0; k < 2; k++) {
-      const sx = k ? 1 : -1;
-      const armA = c.sitting ? -0.6 : -legAng[k] * 0.8;
-      set(P.arm, k, m4.mul(B, m4.trs([sx * 0.19, torsoY + 0.12, 0], 0, 1, armA, sx * 0.12)));
-      const legM = m4.mul(B, m4.trs([sx * 0.08, hipY, legFwd], 0, 1, legAng[k]));
-      set(P.leg, k, legM);
-      set(P.boot, k, m4.mul(legM, m4.trs([0, -0.25, 0.03])));
-    }
-    for (const k of Object.keys(P)) updateInstances(this.gl, P[k].m);
-  }
-
-  drawItems() {
-    const gl = this.gl;
-    for (const it of this.items) {
-      if (!it.m.instances) continue;
-      gl.bindVertexArray(it.m.vao);
-      gl.drawElementsInstanced(gl.TRIANGLES, it.m.count, it.m.type, 0, it.m.instances);
-    }
+  fs() { this.gl.bindVertexArray(this.empty); this.gl.drawArrays(this.gl.TRIANGLES, 0, 3); }
+  makeCube() {
+    const gl = this.gl, P = [], N = [], L = [], I = [];
+    // faces: 0 +X, 1 −X, 2 +Y (top), 3 −Y, 4 +Z, 5 −Z; uv = (along X or Z, up) on the sides
+    const F = [[[1, 0, 0], [0, 0, 1], [0, 1, 0]], [[-1, 0, 0], [0, 0, -1], [0, 1, 0]], [[0, 1, 0], [1, 0, 0], [0, 0, -1]],
+      [[0, -1, 0], [1, 0, 0], [0, 0, 1]], [[0, 0, 1], [-1, 0, 0], [0, 1, 0]], [[0, 0, -1], [1, 0, 0], [0, 1, 0]]];
+    F.forEach(([n, u, v], f) => {
+      const b = P.length / 3;
+      for (const [a, c] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+        const x = .5 * (n[0] + a * u[0] + c * v[0]), y = .5 * (n[1] + a * u[1] + c * v[1]) + .5, z = .5 * (n[2] + a * u[2] + c * v[2]);
+        P.push(x, y, z); N.push(...n);
+        const along = f === 4 || f === 5 ? x + .5 : f === 0 || f === 1 ? z + .5 : x + .5;
+        L.push(f >= 4 ? (f === 4 ? .5 - x : x + .5) : along, f === 2 || f === 3 ? z + .5 : y, f);
+      }
+      I.push(b, b + 1, b + 2, b, b + 2, b + 3);
+    });
+    const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+    [[P, 0], [N, 1], [L, 2]].forEach(([d, loc]) => { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(d), gl.STATIC_DRAW); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 3, gl.FLOAT, false, 0, 0); });
+    const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(I), gl.STATIC_DRAW);
+    this.instBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, this.instBuf);
+    const st = 64;
+    [[3, 0, 3], [4, 12, 3], [5, 24, 3], [6, 36, 3], [7, 48, 4]].forEach(([loc, off, n]) => { gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, n, gl.FLOAT, false, st, off); gl.vertexAttribDivisor(loc, 1); });
     gl.bindVertexArray(null);
+    return { vao, count: I.length };
+  }
+  /** A fusion plant: a drum (face 10) under a dome (face 11), unit size like the cube: x and z in
+   *  [−½, ½], y in [0, 1]. aLoc = (sector 0..1, height 0..1, face). Its own instance buffer. */
+  makeDome() {
+    const gl = this.gl, P = [], N = [], L = [], I = [];
+    const NS = 24, DRUM = .3;
+    const ring = (y, r, ny, nr, face) => { for (let i = 0; i <= NS; i++) { const t = i / NS * Math.PI * 2, c = Math.cos(t), s = Math.sin(t); P.push(c * r, y, s * r); N.push(c * nr, ny, s * nr); L.push(i / NS, y, face); } };
+    const strip = (a, b) => { for (let i = 0; i < NS; i++) I.push(a + i, b + i, a + i + 1, a + i + 1, b + i, b + i + 1); };
+    ring(0, .5, 0, 1, 10); ring(DRUM, .5, 0, 1, 10); strip(0, NS + 1);
+    const NR = 7;
+    let prev = -1;
+    for (let j = 0; j <= NR; j++) {
+      const th = j / NR * Math.PI / 2, y = DRUM + (1 - DRUM) * Math.sin(th), r = .5 * Math.cos(th);
+      const ny = Math.sin(th) * .5, nr = Math.cos(th) * (1 - DRUM);   // ellipse normal, before scaling
+      const l = Math.hypot(ny, nr), base = P.length / 3;
+      ring(y, Math.max(r, .004), ny / l, nr / l, 11);
+      if (prev >= 0) strip(prev, base);
+      prev = base;
+    }
+    const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+    [[P, 0], [N, 1], [L, 2]].forEach(([d, loc]) => { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(d), gl.STATIC_DRAW); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 3, gl.FLOAT, false, 0, 0); });
+    const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(I), gl.STATIC_DRAW);
+    this.plantBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, this.plantBuf);
+    [[3, 0, 3], [4, 12, 3], [5, 24, 3], [6, 36, 3], [7, 48, 4]].forEach(([loc, off, n]) => { gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, n, gl.FLOAT, false, 64, off); gl.vertexAttribDivisor(loc, 1); });
+    gl.bindVertexArray(null);
+    return { vao, count: I.length };
+  }
+  makeDish() {
+    // a 1.8 km paraboloid on a pedestal; aRS = (radial fraction, sector) — 2 on the pedestal
+    const gl = this.gl, P = [], N = [], S = [], I = [];
+    const RIM = 900, DEPTH = 220, NR = 18, NS = 48;
+    for (let j = 0; j <= NR; j++) for (let i = 0; i <= NS; i++) {
+      const r = j / NR * RIM, t = i / NS * Math.PI * 2, z = r * r / (RIM * RIM) * DEPTH;
+      P.push(Math.cos(t) * r, z + 380, Math.sin(t) * r);
+      const dz = 2 * r / (RIM * RIM) * DEPTH; const n = V.norm([-Math.cos(t) * dz, 1, -Math.sin(t) * dz]);
+      N.push(...n); S.push(j / NR, i / NS);
+    }
+    for (let j = 0; j < NR; j++) for (let i = 0; i < NS; i++) { const a = j * (NS + 1) + i, b = a + NS + 1; I.push(a, b, a + 1, a + 1, b, b + 1); }
+    const base = P.length / 3;
+    for (let i = 0; i <= 12; i++) { const t = i / 12 * Math.PI * 2, c = Math.cos(t), s = Math.sin(t);
+      P.push(c * 60, -40, s * 60, c * 30, 390, s * 30); N.push(c, 0, s, c, 0, s); S.push(2, i / 12, 2, i / 12); }
+    for (let i = 0; i < 12; i++) { const a = base + i * 2; I.push(a, a + 1, a + 2, a + 2, a + 1, a + 3); }
+    const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+    [[P, 0, 3], [N, 1, 3], [S, 2, 2]].forEach(([d, loc, n]) => { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(d), gl.STATIC_DRAW); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, n, gl.FLOAT, false, 0, 0); });
+    const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(I), gl.STATIC_DRAW);
+    gl.bindVertexArray(null);
+    return { vao, count: I.length };
   }
 
-  // One frame --------------------------------------------------------------------
-  frame(st) {
+  /** Bake the region map and read it back for the CPU's terrain. */
+  bakeRegions(W = 2048, H = 1024) {
     const gl = this.gl;
-    const t0 = performance.now();
-    // ---- shadow map from the key light
-    const L = st.keyDir;
-    const centre = [0, 1.5, 0];
-    const up = Math.abs(L[1]) > 0.95 ? [1, 0, 0] : [0, 1, 0];
-    const lv = m4.lookAt(v3.add(centre, v3.mul(L, 60)), centre, up);
-    // fit the light's box around the model
-    let mn = [1e9, 1e9, 1e9], mx = [-1e9, -1e9, -1e9];
-    for (const x of [-17, 17]) for (const y of [-5.6, 11.5]) for (const z of [-17, 17]) {
-      const p = m4.apply(lv, [x, y, z]);
-      for (let k = 0; k < 3; k++) { mn[k] = Math.min(mn[k], p[k]); mx[k] = Math.max(mx[k], p[k]); }
-    }
-    const lp = m4.ortho(mn[0], mx[0], mn[1], mx[1], -mx[2] - 1, -mn[2] + 1);
-    const shadowVP = m4.mul(lp, lv);
-    if (st.shadowDirty !== false) {
-      gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadow.fb);
-      gl.viewport(0, 0, this.shadow.size, this.shadow.size);
-      gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LESS); gl.depthMask(true);
-      gl.clear(gl.DEPTH_BUFFER_BIT);
-      gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(1.6, 2.0);
-      const p = this.shadowProg;
-      gl.useProgram(p.p);
-      gl.uniformMatrix4fv(p.u.uVP, false, shadowVP);
-      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_3D, this.noise); gl.uniform1i(p.u.uNoise, 1);
-      gl.uniform1f(p.u.uStep, st.step);
-      this.drawItems();
-      gl.disable(gl.POLYGON_OFFSET_FILL);
-    }
-
-    // ---- the model
-    const tgt = this.main;
-    gl.bindFramebuffer(gl.FRAMEBUFFER, tgt.msfb || tgt.fb);
-    gl.viewport(0, 0, tgt.w, tgt.h);
-    gl.clearColor(0, 0, 0, 1);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL);
-    const p = this.scene, u = p.u;
-    gl.useProgram(p.p);
-    gl.uniformMatrix4fv(u.uVP, false, st.vp);
-    gl.uniform3fv(u.uCam, st.eye);
-    gl.uniform3fv(u.uSunDir, st.sunDir); gl.uniform3fv(u.uSunCol, st.sunCol);
-    gl.uniform3fv(u.uNepDir, st.nepDir); gl.uniform3fv(u.uNepCol, st.nepCol);
-    gl.uniform3fv(u.uKeyDir, L); gl.uniform1f(u.uKeyIsSun, st.keyIsSun ? 1 : 0);
-    gl.uniformMatrix4fv(u.uShadowVP, false, shadowVP);
-    gl.uniform1f(u.uShadowSoft, (st.keyIsSun ? 1.3 : 4.5) / this.shadow.size);
-    gl.uniform1f(u.uShadowOn, 1);
-    gl.uniform1i(u.uShadowTaps, this.q.shadowTaps);
-    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.shadow.tex); gl.uniform1i(u.uShadow, 0);
-    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_3D, this.noise); gl.uniform1i(u.uNoise, 1);
-    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, this.groundTex); gl.uniform1i(u.uGround, 2);
-    gl.uniform1f(u.uGroundS, this.groundS);
-    gl.uniform3fv(u.uAmbTop, st.ambTop); gl.uniform3fv(u.uAmbBottom, st.ambBottom);
-    gl.uniform1f(u.uExposure, st.exposure); gl.uniform1f(u.uLights, 1); gl.uniform1f(u.uWindows, st.windows);
-    gl.uniform1f(u.uTime, st.t); gl.uniform1f(u.uStep, st.step);
-    gl.uniform1f(u.uHover, st.hover || 0); gl.uniform1f(u.uSel, st.sel || 0);
-    gl.uniform1f(u.uHW, W.HW);
-    gl.uniform4fv(u.uHallA, st.hallA); gl.uniform4fv(u.uHallB, st.hallB);
-    gl.uniform4fv(u.uLamp, st.lamps);
-    gl.uniform4fv(u.uBusy, st.busy);
-    gl.uniform3fv(u.uPal, st.palette);
-    gl.uniform1f(u.uFocus, st.focus); gl.uniform1f(u.uAperture, st.aperture);
-    this.drawItems();
-
-    // ---- the backdrop, wherever the model isn't
-    gl.depthMask(false);
-    const k = this.sky, ku = k.u;
-    gl.useProgram(k.p);
-    gl.uniformMatrix4fv(ku.uSkyInv, false, st.skyInv);
-    gl.uniform3fv(ku.uSunDir, st.sunDir); gl.uniform3fv(ku.uNepDir, st.nepDir); gl.uniform3fv(ku.uNepPole, st.nepPole);
-    gl.uniform1f(ku.uSunVis, st.sunVis); gl.uniform1f(ku.uNepR, st.nepR); gl.uniform1f(ku.uSpin, st.spin);
-    gl.uniform1f(ku.uPix, st.pix); gl.uniform1f(ku.uExposure, st.skyExposure); gl.uniform1f(ku.uSkyCoc, st.skyCoc);
-    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_3D, this.noise); gl.uniform1i(ku.uNoise, 1);
-    gl.bindVertexArray(this.emptyVao);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
-    gl.depthMask(true);
-    gl.disable(gl.DEPTH_TEST);
-
-    if (tgt.msfb) {
-      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, tgt.msfb);
-      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, tgt.fb);
-      gl.blitFramebuffer(0, 0, tgt.w, tgt.h, 0, 0, tgt.w, tgt.h, gl.COLOR_BUFFER_BIT, gl.NEAREST);
-    }
-
-    // ---- shallow focus at half resolution
-    const hf = this.half;
-    gl.bindFramebuffer(gl.FRAMEBUFFER, hf.fb);
-    gl.viewport(0, 0, hf.w, hf.h);
-    gl.useProgram(this.dof.p);
-    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tgt.tex); gl.uniform1i(this.dof.u.uSrc, 0);
-    gl.uniform2f(this.dof.u.uTexel, 1 / tgt.w, 1 / tgt.h);
-    gl.uniform1f(this.dof.u.uMaxR, st.maxBlur * tgt.h / 900);
-    gl.uniform1i(this.dof.u.uTaps, this.q.taps);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
-
-    // ---- glow from the brightest things (windows, the Sun)
-    const qt = this.quarter;
-    gl.bindFramebuffer(gl.FRAMEBUFFER, qt.fb);
-    gl.viewport(0, 0, qt.w, qt.h);
-    if (this.q.glow) {
-      gl.useProgram(this.glow.p);
-      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, hf.tex); gl.uniform1i(this.glow.u.uSrc, 0);
-      gl.uniform2f(this.glow.u.uTexel, 1 / hf.w, 1 / hf.h);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
-    } else { gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); }
-
-    // ---- to the screen
+    this.regionT = G.target(gl, W, H, [{ filter: gl.LINEAR, wrapS: gl.REPEAT, wrapT: gl.CLAMP_TO_EDGE }]);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.regionT.fb); gl.viewport(0, 0, W, H);
+    gl.useProgram(this.p.region.p); this.fs();
+    const data = new Uint8Array(W * H * 4);
+    gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, data);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.viewport(0, 0, this.w, this.h);
-    const c = this.comp, cu = c.u;
-    gl.useProgram(c.p);
-    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tgt.tex); gl.uniform1i(cu.uScene, 0);
-    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, hf.tex); gl.uniform1i(cu.uBlur, 2);
-    gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, qt.tex); gl.uniform1i(cu.uGlow, 3);
-    gl.uniform1f(cu.uGlowAmt, this.q.glow ? 0.9 : 0); gl.uniform1f(cu.uStep, st.step);
-    gl.uniform1f(cu.uGrain, 0.022); gl.uniform1f(cu.uDof, st.dof);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    return { data, W, H };
+  }
+  setMachine(m) {
+    const gl = this.gl;
+    this.fieldMap = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, this.fieldMap);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8UI, m.fmW, m.fmH, 0, gl.RGBA_INTEGER, gl.UNSIGNED_BYTE, m.fieldMap);
+    for (const p of [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER]) gl.texParameteri(gl.TEXTURE_2D, p, gl.NEAREST);
+    this.fmSize = [m.fmW, m.fmH];
+    const n = m.fields.length;
+    this.fieldTex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, this.fieldTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, n, 3, 0, gl.RGBA, gl.FLOAT, m.fieldData);
+    for (const p of [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER]) gl.texParameteri(gl.TEXTURE_2D, p, gl.NEAREST);
+    // the lattice: one instance per span, drawn as a camera-facing ribbon
+    const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.strip); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, m.spans, gl.STATIC_DRAW);
+    [[1, 0, 3], [2, 12, 3], [3, 24, 4], [4, 40, 1]].forEach(([loc, off, k]) => { gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, k, gl.FLOAT, false, 44, off); gl.vertexAttribDivisor(loc, 1); });
     gl.bindVertexArray(null);
-    this.stats.cpuMs = performance.now() - t0;
+    this.lat = { vao, count: m.spans.length / 11 };
+    const dg = DISH, h = heightAt(dg);
+    this.dishPos = V.mul(dg, R + h - 20);
+  }
+  setInstances(data, origin, plants) {
+    const gl = this.gl;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.instBuf); gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
+    if (plants) { gl.bindBuffer(gl.ARRAY_BUFFER, this.plantBuf); gl.bufferData(gl.ARRAY_BUFFER, plants, gl.DYNAMIC_DRAW); }
+    this.inst = { count: data.length / 16, origin, plants: plants ? plants.length / 16 : 0, plantData: plants };
+  }
+  resize(W, H) {
+    const gl = this.gl;
+    if (this.W === W && this.H === H) return;
+    this.W = W; this.H = H;
+    const del = t => { if (!t) return; gl.deleteFramebuffer(t.fb); t.tex.forEach(x => gl.deleteTexture(x)); };
+    [this.gb, this.vol, this.base, this.jA, this.jB, this.gA, this.gB].forEach(del);
+    const N8 = { filter: gl.NEAREST }, L8 = { filter: gl.LINEAR };
+    const UI = { internal: gl.RGBA32UI, format: gl.RGBA_INTEGER, type: gl.UNSIGNED_INT, filter: gl.NEAREST };
+    const I16 = { internal: gl.RGBA16I, format: gl.RGBA_INTEGER, type: gl.SHORT, filter: gl.NEAREST };
+    this.gb = G.target(gl, W, H, [N8, UI], true);
+    this.vol = G.target(gl, W, H, [L8]);
+    this.base = G.target(gl, W, H, [L8]);
+    this.jA = G.target(gl, W, H, [I16]); this.jB = G.target(gl, W, H, [I16]);
+    const hw = Math.max(1, W >> 1), hh = Math.max(1, H >> 1);
+    this.gA = G.target(gl, hw, hh, [L8]); this.gB = G.target(gl, hw, hh, [L8]);
+  }
+
+  /** Draw one frame. `s` is the frame state from the app. */
+  render(s) {
+    const gl = this.gl, W = this.W, H = this.H, cam = s.cam, cp = cam.pos;
+    const camLen = V.len(cp), far = camLen + 2.2 * R;
+    const pixAng = 2 * Math.tan(cam.fovy / 2) / H;
+    const camF = [fround(cp[0]), fround(cp[1]), fround(cp[2])], camLo = [cp[0] - camF[0], cp[1] - camF[1], cp[2] - camF[2]];
+    const nep = V.sub([NEP_DIST, 0, 0], cp), nepD = V.len(nep);
+    const common = {
+      uVP: cam.vp, uLogC: 1 / Math.log2(far + 1), uSun: s.sun, uNepLit: s.nepLit, uYear: s.year, uTime: s.time,
+      uFieldMap: { tex: this.fieldMap, unit: 6 }, uFields: { tex: this.fieldTex, unit: 7 }, uFieldMapSize: this.fmSize, uCamF: camF,
+    };
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.gb.fb); gl.viewport(0, 0, W, H);
+    gl.disable(gl.BLEND);
+    gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]);
+    gl.clearBufferuiv(gl.COLOR, 1, [0, 7, 0x7f000000, 0]);
+    gl.clearDepth(1); gl.clear(gl.DEPTH_BUFFER_BIT);
+    // sky
+    gl.disable(gl.DEPTH_TEST); gl.depthMask(false);
+    gl.useProgram(this.p.sky.p);
+    G.uniforms(gl, this.p.sky, { uInvVP: cam.inv, uSunDir: s.sun, uNepDir: V.mul(nep, 1 / nepD), uNepAng: NEP_R / nepD,
+      uNepPole: s.nepPole, uNepSpin: s.nepSpin, uPixAng: pixAng, uSS: s.ss, uLogC: common.uLogC });
+    this.fs();
+    gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.depthFunc(gl.LEQUAL); gl.disable(gl.CULL_FACE);
+    // terrain
+    const tp = this.p.terrain;
+    gl.useProgram(tp.p);
+    G.uniforms(gl, tp, { ...common, uRegion: { tex: this.regionT.tex[0], unit: 5 }, uMinPx: 34 * s.ss, uFinRing: s.finRing, uPixAng: pixAng, uCellS: { v1: new Float32Array(CELL) } });
+    const CI = new Int32Array(24), CF = new Float32Array(24);
+    for (const c of s.chunks) {
+      const ctr = c.center;
+      for (let k = 0; k < 8; k++) for (let a = 0; a < 3; a++) { const q = ctr[a] / CELL[k], f = Math.floor(q); CI[k * 3 + a] = f; CF[k * 3 + a] = q - f; }
+      G.uniforms(gl, tp, { uOff: [ctr[0] - cp[0], ctr[1] - cp[1], ctr[2] - cp[2]], uChunkF: [ctr[0], ctr[1], ctr[2]], uCI: { iv3: CI }, uCF: { v3: CF } });
+      gl.bindVertexArray(c.vao); gl.drawElements(gl.TRIANGLES, s.terrainCount, gl.UNSIGNED_SHORT, 0);
+    }
+    // things on the ground
+    if (this.inst && this.inst.count && s.finRing > 0) {
+      const ip = this.p.inst, o = this.inst.origin;
+      gl.useProgram(ip.p);
+      G.uniforms(gl, ip, { ...common, uOrigin: [o[0] - cp[0], o[1] - cp[1], o[2] - cp[2]], uRing: s.finRing + 3000 });
+      gl.bindVertexArray(this.cube.vao); gl.drawElementsInstanced(gl.TRIANGLES, this.cube.count, gl.UNSIGNED_SHORT, 0, this.inst.count);
+      if (this.inst.plants) { gl.bindVertexArray(this.dome.vao); gl.drawElementsInstanced(gl.TRIANGLES, this.dome.count, gl.UNSIGNED_SHORT, 0, this.inst.plants); }
+    }
+    // the dish, pointing at Earth (within 2° of the Sun from here)
+    if (this.dishPos && V.len(V.sub(this.dishPos, cp)) < 600e3) {
+      const up = DISH, fr = tangentFrame(up);
+      let ax = V.norm(V.add(s.sun, V.mul(up, Math.max(0, .15 - V.dot(s.sun, up)))));
+      const xr = V.norm(V.cross(ax, fr.north)), zr = V.cross(xr, ax);
+      gl.useProgram(this.p.dish.p);
+      G.uniforms(gl, this.p.dish, { ...common, uOrigin: V.sub(this.dishPos, cp), uBasis: { mat3: new Float32Array([...xr, ...ax, ...zr]) } });
+      gl.bindVertexArray(this.dish.vao); gl.drawElements(gl.TRIANGLES, this.dish.count, gl.UNSIGNED_SHORT, 0);
+    }
+    // the lattice
+    if (this.lat) {
+      const lp = this.p.lattice;
+      gl.useProgram(lp.p);
+      G.uniforms(gl, lp, { ...common, uCamHi: camF, uCamLo: camLo, uPixAng: pixAng * (s.ss > 0 ? 1 : 1), uMinNight: s.orbit ? 2 : 1, uMinDay: s.orbit ? 14 : 1, uLatW: .5 * s.ss });
+      gl.bindVertexArray(this.lat.vao); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, this.lat.count);
+    }
+    gl.disable(gl.DEPTH_TEST);
+    // geysers
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.vol.fb); gl.viewport(0, 0, W, H);
+    gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+    const gs = GEYSERS.filter(g => V.len(V.sub(V.mul(g.p, R), cp)) < 1500e3);
+    if (gs.length && s.geysers) {
+      const Gp = [], Gu = [], Gw = [];
+      for (const g of gs) {
+        const base = V.mul(g.p, R + heightAt(g.p)), fr = tangentFrame(g.p), az = g.wind * Math.PI / 180;
+        Gp.push(...V.sub(base, cp)); Gu.push(...g.p); Gw.push(...V.add(V.mul(fr.north, Math.cos(az)), V.mul(fr.east, Math.sin(az))));
+      }
+      while (Gp.length < 6) { Gp.push(0, 0, 0); Gu.push(0, 0, 1); Gw.push(1, 0, 0); }
+      gl.useProgram(this.p.geyser.p);
+      G.uniforms(gl, this.p.geyser, { uInvVP: cam.inv, uIds: { tex: this.gb.tex[1], unit: 0 }, uSun: s.sun, uTime: s.time,
+        uG: { v3: new Float32Array(Gp) }, uGUp: { v3: new Float32Array(Gu) }, uGW: { v3: new Float32Array(Gw) }, uGN: { int: gs.length } });
+      this.fs();
+    }
+    // enamel
+    const dec = { uL: { tex: this.gb.tex[0], unit: 0 }, uIds: { tex: this.gb.tex[1], unit: 1 }, uRes: [W, H], uSS: s.ss };
+    const pass = (prog, tgt, extra) => {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, tgt ? tgt.fb : null); gl.viewport(0, 0, tgt ? tgt.w : W, tgt ? tgt.h : H);
+      gl.useProgram(prog.p); G.uniforms(gl, prog, { ...dec, ...extra }); this.fs();
+    };
+    pass(this.p.base, this.base, { uInvVP: cam.inv });
+    pass(this.p.seed, this.jA, {});
+    let a = this.jA, b = this.jB;
+    for (const st of [8, 4, 2, 1].map(x => Math.max(1, Math.round(x * s.ss)))) {
+      pass(this.p.jfa, b, { uSrc: { tex: a.tex[0], unit: 2 }, uStep: { int: st } });
+      [a, b] = [b, a];
+    }
+    const hw = this.gA.w, hh = this.gA.h;
+    pass(this.p.blur, this.gA, { uSrc: { tex: this.base.tex[0], unit: 2 }, uDir: [1.6 / hw, 0], uFirst: 1 });
+    pass(this.p.blur, this.gB, { uSrc: { tex: this.gA.tex[0], unit: 2 }, uDir: [0, 1.6 / hh], uFirst: 0 });
+    pass(this.p.final, null, { uBase: { tex: this.base.tex[0], unit: 3 }, uJfa: { tex: a.tex[0], unit: 4 }, uGlow: { tex: this.gB.tex[0], unit: 5 },
+      uVol: { tex: this.vol.tex[0], unit: 6 }, uNetW: s.netW, uFormW: 1.9 });
   }
 }

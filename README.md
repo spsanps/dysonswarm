@@ -12,7 +12,8 @@ and [Paper Robots](https://www.youtube.com/@paperrobotsfilms) for films.
 | `home/` | Homepage styles, icon, and share image. |
 | `another-sky/` | O’Neill-cylinder explorer: page, styles, renderer, preview images. Its front door, the painted window, is in `another-sky/window/`. |
 | `swarm/` | Original pixel swarm: page, styles, simulation, preview image. |
-| `triton/` | Four Hours Out, a clay-model computing campus on Triton: page, styles, renderer (`js/`), fonts, preview images. |
+| `triton/` | A Moon That Thinks: Triton grown into a computer from 2050 to about 2090, powered by fusion, in cloisonné enamel. Page, styles, renderer and workers (`js/`), font, preview images. Notes in `_design/reviews/2026-10-triton-v2/`. |
+| `_archive/triton-clay/` | The rejected first Triton (clay diorama), kept as a record; not published. |
 | `og-image.png` | Original swarm share image; existing public URL preserved. |
 | `worlds/` | Alias that takes visitors to the collection homepage. |
 | `_archive/another-sky/` | Exact original HTML supplied for the September 2026 launch. |

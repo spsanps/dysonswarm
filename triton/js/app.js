@@ -1,403 +1,573 @@
-// Four Hours Out: boot, camera, time and the frame loop. Loaded only after Enter.
-import { Renderer, QUALITY } from './render.js';
-import { m4, v3 } from './gl.js';
+// A Moon That Thinks: the app. Loaded only after the visitor presses Enter.
+import { Renderer } from './render.js';
+import { Terrain, frustumPlanes } from './terrain.js';
 import * as A from './astro.js';
-import * as W from './world.js';
-import { jobAt } from './jobs.js';
-import { UI } from './ui.js';
+import { R, GRAV, V, D2R, heightAt, setRegionMap, regionAt, tangentFrame, latLonDir, NEP_DIST } from './world.js';
+import { YEARS, GROWN, calendarYear, LANDING, numbers, offset, GEYSERS, DISH } from './machine.js';
+import * as G from './gl.js';
+import { lookDir, perspective, mul4, invert4 } from './gl.js';
 
 const $ = id => document.getElementById(id);
-const D = Math.PI / 180;
+const q = new URLSearchParams(location.search);
+const num = (k, d) => (q.has(k) ? parseFloat(q.get(k)) : d);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
-const params = new URLSearchParams(location.search);
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const touch = matchMedia('(pointer: coarse)').matches;
+const FROZEN = q.has('t');
 
+let gl, rnd, terrain, workers = [], machine = null, canvas;
+const st = {
+  mode: 'orbit', year: 0, playing: false, hours: num('hours', 0), time: num('t', 0), quality: q.get('q') || 'auto',
+  orbit: { lat: num('olat', 7.4), lon: num('olon', -172.5), dist: num('od', 8.9e6) },
+  surf: { dir: offset(LANDING, 90, 30), alt: 1.7, yaw: 0, pitch: 12, fly: false, vz: 0, speed: 60 },
+  transit: null, ui: q.get('ui') !== '0', scale: 1, instReq: null, instOrigin: null, frames: 0,
+};
+let keys = new Set(), lastT = 0, dragging = null, pinch = null, stick = null, bench = null;
+
+// ---------------------------------------------------------------------------
+// Boot
+function bootText(t, p) { $('bootText').textContent = t; if (p !== undefined) $('bootBar').style.width = Math.round(p * 100) + '%'; }
+function fail(msg) {
+  document.body.classList.add('failed');
+  $('bootTitle').textContent = 'Triton can’t open here.';
+  bootText(msg);
+  $('failActions').hidden = false;
+  window.__ready = true;
+}
 export async function start() {
-  const boot = $('boot'), canvas = $('world');
-  const progress = (text, p) => { $('bootText').textContent = text; $('bootBar').style.width = p + '%'; };
-  const fail = (msg, err) => {
-    console.error(msg, err || '');
-    document.body.classList.add('failed');
-    boot.classList.add('show');
-    $('bootTitle').textContent = 'The window wouldn’t open.';
-    $('bootText').textContent = msg;
-    $('bootBar').parentNode.style.display = 'none';
-    $('failActions').hidden = false;
-    window.__ready = true; window.__error = String(err || msg);
-  };
-  boot.classList.add('show');
-  progress('Finding a graphics card', 3);
-
-  const gl = params.get('nogl') === '1' ? null : canvas.getContext('webgl2', { antialias: false, alpha: false, depth: true, stencil: false, powerPreference: 'high-performance', preserveDrawingBuffer: false });
-  if (!gl) { fail('This needs WebGL2, which this browser isn’t offering. A recent Chrome, Edge, Firefox or Safari with hardware acceleration should work. The notes still work without it.'); return; }
-  canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); fail('The graphics context was lost. Reload the page to rebuild the campus.'); }, false);
-
-  const R = new Renderer(gl);
-  try { await R.build(progress); } catch (e) { fail('The campus couldn’t be built: ' + e.message, e); return; }
-
-  // ---- quality -------------------------------------------------------------
-  const coarse = matchMedia('(pointer: coarse)').matches;
-  let qualityMode = params.get('q') || 'auto';
-  let qName = qualityMode === 'auto' ? (coarse ? 'low' : 'medium') : (QUALITY[qualityMode] ? qualityMode : 'medium');
-  const dpr = () => Math.min(window.devicePixelRatio || 1, 2);
-  R.setQuality(qName, innerWidth, innerHeight, dpr());
-
-  // ---- time ----------------------------------------------------------------
-  const fixedDate = params.get('date') ? Date.parse(params.get('date')) : null;
-  const fixedT = params.has('t') ? parseFloat(params.get('t')) : null;
-  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  let lapse = false, lapseOffset = 0;
-  let earthView = params.get('earth') === '1';
-  const t0Real = performance.now();
-  const realNow = () => fixedDate ?? Date.now();
-  const simNow = () => {
-    const now = realNow() + lapseOffset;
-    return earthView ? now - A.lightTime(now).ms : now;
-  };
-  // Reduced motion: the world holds still (the caretaker sits, the smoke stops).
-  const animTime = () => fixedT ?? (reduced ? 1300 : (performance.now() - t0Real) / 1000 + 1200);
-
-  // ---- camera --------------------------------------------------------------
-  const HOME = { yaw: 14 * D, pitch: 27 * D, target: [0.8, 0.7, 2.0] };
-  const cam = { yaw: HOME.yaw, pitch: HOME.pitch, dist: 40, target: [...HOME.target] };
-  const goal = { yaw: cam.yaw, pitch: cam.pitch, dist: 40, target: [...cam.target] };
-  let fitDist = 40, sel = null;
-  if (params.get('target')) { const t = params.get('target').split(',').map(Number); if (t.length === 3 && t.every(isFinite)) { cam.target = [...t]; goal.target = [...t]; } }
-  if (params.get('cam')) {
-    const [y, p, d] = params.get('cam').split(',').map(Number);
-    if (isFinite(y)) cam.yaw = goal.yaw = y * D;
-    if (isFinite(p)) cam.pitch = goal.pitch = p * D;
-    if (isFinite(d)) cam.dist = goal.dist = d;
+  document.body.classList.add('booting');
+  if (FROZEN) document.body.classList.add('frozen');
+  if (!st.ui) document.body.classList.add('ui-hidden');
+  canvas = $('world');
+  try {
+    if (q.has('nogl')) throw new Error('nogl');
+    gl = canvas.getContext('webgl2', { antialias: false, alpha: false, depth: true, powerPreference: 'high-performance', preserveDrawingBuffer: q.has('t') });
+    if (!gl) throw new Error('nogl');
+  } catch (e) { fail('This needs WebGL2, which this browser doesn’t offer. The notes still work.'); return; }
+  canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); fail('The graphics driver stopped the 3D view. Reload the page to try again.'); });
+  try {
+    bootText('Compiling the enamel', .1);
+    await frame();
+    rnd = new Renderer(gl);
+    await G.settle(gl, [rnd.p.region]);
+    bootText('Laying out the ice', .3);
+    await frame();
+    const reg = rnd.bakeRegions();
+    setRegionMap(reg.data, reg.W, reg.H);
+    bootText('Growing the mind', .45);
+    const mk = () => new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
+    workers = [mk(), mk()];
+    const got = new Promise((res, rej) => {
+      workers[0].addEventListener('message', e => { if (e.data.type === 'machine') res(e.data); });
+      workers.forEach(w => w.addEventListener('error', e => rej(e.message || 'worker failed')));
+    });
+    workers.forEach((w, i) => w.postMessage({ type: 'init', region: reg.data, rw: reg.W, rh: reg.H, machine: i === 0 }));
+    // the other shaders finish compiling while the workers grow the machine
+    await Promise.all([G.settle(gl, Object.values(rnd.p)), got.then(m => { machine = m; })]);
+    rnd.setMachine(machine);
+    workers[0].addEventListener('message', e => { if (e.data.type === 'inst') { rnd.setInstances(e.data.data, e.data.origin, e.data.plants); st.instOrigin = e.data.origin; st.instReq = null; } });
+    terrain = new Terrain(gl, workers);
+    bootText('Building the surface', .6);
+  } catch (e) { console.error(e); fail('Something went wrong while building Triton: ' + (e.message || e)); return; }
+  // Start with the terminator facing you: the Sun and Neptune are shown as they will be at the
+  // next moment the Sun sits there (within six days). The HUD says which day that is.
+  const groundStart = !q.has('view') && !q.has('night') && !q.has('descend');
+  if (!q.has('hours') && groundStart) {
+    // On the ground: the next moment the Sun stands about 27° up in the west at the landing site,
+    // so the rose ice and the fins are lit and Neptune is about half lit.
+    const now = Date.now(), fr = tangentFrame(LANDING);
+    let best = 0, bs = 1e9;
+    for (let h = 0; h < A.PERIOD_MS / A.HOUR; h += .25) {
+      const s = A.sunBody(now + h * A.HOUR), e = Math.asin(V.dot(s, LANDING)) / D2R, east = V.dot(s, fr.east);
+      const score = Math.abs(e - 27) + (east > 0 ? 50 : 0);
+      if (score < bs) { bs = score; best = h; }
+    }
+    st.hours = best;
+  } else if (!q.has('hours')) {
+    const now = Date.now(), H = A.hourAngle(now), target = -100 * D2R;
+    const frac = (((target - H) / (2 * Math.PI)) % 1 + 1) % 1;
+    st.hours = frac * A.PERIOD_MS / A.HOUR;
   }
-  function frame() {
-    const w = innerWidth, h = innerHeight, aspect = w / h;
-    const portrait = aspect < 0.9;
-    const fovy = portrait ? 50 * D : (aspect < 1.3 ? 38 * D : 31 * D);
-    return { w, h, aspect, fovy, portrait };
-  }
-  function fit() {
-    const f = frame();
-    const tanV = Math.tan(f.fovy / 2), tanH = tanV * f.aspect;
-    const rad = f.portrait ? 10.4 : 19.2;
-    const dH = rad / tanH;
-    const dV = (rad * Math.sin(cam.pitch) + 3.2) / tanV;
-    fitDist = Math.max(dH, dV) * (f.portrait ? 1.0 : 1.04);
-    return fitDist;
-  }
-  fit();
-  // Turn the model so Neptune sits a little right of centre, whatever the screen shape.
-  function homeYaw() { const f = frame(); return Math.atan(0.5 * Math.tan(f.fovy / 2) * f.aspect); }
-  HOME.yaw = homeYaw();
-  if (!params.get('cam')) { cam.yaw = goal.yaw = HOME.yaw; cam.dist = goal.dist = fitDist; }
+  // initial view and year
+  // ?year= takes a calendar year (2050–2090); without it the moon is shown fully grown
+  st.year = q.has('year') ? clamp((num('year', 2090) - 2050) * 15, 0, YEARS) : GROWN;
+  st.playing = false;
+  // the first view is the ground at the landing site, looking up the avenue at Neptune
+  if (groundStart) enterSurface(st.surf.dir, 0, 12, 1.7);
+  if (q.has('night')) { const f = nightField(Date.now() + st.hours * A.HOUR); enterSurface(f.dir, f.yaw + num('yaw', 0), num('pitch', 12), num('alt', 1.7)); }
+  else if (q.get('view') === 'surface') enterSurface(q.has('lat') ? latLonDir(num('lat', -60), num('lon', 0)) : st.surf.dir, num('yaw', 0), num('pitch', 12), num('alt', 1.7));
+  bindInputs();
+  resize();
+  if (q.has('descend')) { landAt(offset(LANDING, 90, 30), 0); if (st.transit) st.transit.t = num('descend', .5); }
+  addEventListener('resize', resize);
+  document.addEventListener('visibilitychange', () => { lastT = 0; if (!document.hidden) requestAnimationFrame(loop); });
+  if (q.has('bench')) bench = { n: num('bench', 30), times: [] };
+  updateYearUI();
+  window.__triton = { st, terrain: () => terrain, rnd: () => rnd };
+  requestAnimationFrame(loop);
+}
+const frame = () => new Promise(r => requestAnimationFrame(() => r()));
 
-  function view() {
-    const f = frame();
-    const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
-    const off = [Math.sin(cam.yaw) * cp, sp, Math.cos(cam.yaw) * cp];
-    const eye = v3.add(cam.target, v3.mul(off, cam.dist));
-    // On phones, nudge the model up so the board at the bottom doesn't cover it.
-    const shiftY = params.has('shift') ? +params.get('shift') : (f.portrait ? -0.06 : -0.02);
-    const P = m4.persp(f.fovy, f.aspect, 0.5, 400, 0, shiftY);
-    const V = m4.lookAt(eye, cam.target, [0, 1, 0]);
-    const vp = m4.mul(P, V);
-    // The backdrop is held at eye level, like a painted sky behind a model: same
-    // bearing as the camera, but tilted so Neptune sits above the model.
-    const halfV = f.fovy / 2;
-    const tilt = Math.atan(0.56 * Math.tan(halfV)) - A.NEPTUNE_ALT * D;
-    const fwd = [-Math.sin(cam.yaw) * Math.cos(tilt), -Math.sin(tilt), -Math.cos(cam.yaw) * Math.cos(tilt)];
-    const Vs = m4.lookAt([0, 0, 0], fwd, [0, 1, 0]);
-    const skyInv = m4.invert(m4.mul(P, Vs));
-    return { eye, vp, skyInv, P, V, f, pix: 2 * Math.tan(halfV) / (f.h * R.pxScale) };
+// ---------------------------------------------------------------------------
+// Size and quality
+function resize() {
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  const caps = { high: Math.min(dpr, 2), medium: Math.min(dpr, 1.25), low: .75, auto: Math.min(dpr, touch ? 1.25 : 1.5) * st.scale };
+  const ratio = caps[st.quality] ?? caps.auto;
+  const w = Math.round(innerWidth * ratio), h = Math.round(innerHeight * ratio);
+  canvas.width = w; canvas.height = h;
+  st.ss = ratio;
+  rnd.resize(w, h);
+  $('qualityBtn').textContent = 'Quality: ' + st.quality;
+}
+
+// ---------------------------------------------------------------------------
+// Cameras
+function orbitCam() {
+  const o = st.orbit;
+  const c = V.mul(latLonDir(o.lat, o.lon), o.dist);
+  const toT = V.norm(V.mul(c, -1)), toN = V.norm(V.sub([NEP_DIST, 0, 0], c));
+  const lead = .3 * smooth(3.5e6, 8.9e6, o.dist);
+  let f = V.norm(V.add(V.mul(toT, 1 - lead), V.mul(toN, lead)));
+  let up0 = [0, 0, 1];
+  const r0 = V.norm(V.cross(f, up0)); up0 = V.cross(r0, f);
+  const roll = 14 * D2R * smooth(3e6, 8.9e6, o.dist);
+  const up = V.add(V.mul(up0, Math.cos(roll)), V.mul(r0, Math.sin(roll)));
+  const aspect = innerWidth / innerHeight;
+  const fov = Math.max((22 + 26 * (1 - smooth(2.4e6, 7.5e6, o.dist))) * D2R, 2 * Math.atan(Math.tan(19 * D2R / 2) / aspect));
+  return { pos: c, f, up, fovy: fov };
+}
+function groundAt(d) { return R + heightAt(d); }
+function surfCam() {
+  const s = st.surf, fr = tangentFrame(s.dir);
+  const pos = V.mul(s.dir, groundAt(s.dir) + s.alt);
+  const h = V.add(V.mul(fr.north, Math.cos(s.yaw * D2R)), V.mul(fr.east, Math.sin(s.yaw * D2R)));
+  const f = V.norm(V.add(V.mul(h, Math.cos(s.pitch * D2R)), V.mul(fr.up, Math.sin(s.pitch * D2R))));
+  const aspect = innerWidth / innerHeight;
+  const fovy = clamp(Math.max(num('fov', 56) * D2R, 2 * Math.atan(Math.tan(52 * D2R / 2) / aspect)), 0, 84 * D2R);
+  return { pos, f, up: fr.up, fovy };
+}
+/** The avenue mouth of a field: a spawn point 2 km from its centre, facing up the avenue. */
+function fieldSpawn(f) {
+  const b = V.cross(f.a, f.c), p = V.norm(V.add(f.c, V.mul(V.add(V.mul(b, 30), V.mul(f.a, -2000)), 1 / R)));
+  const fr = tangentFrame(p);
+  return { dir: p, yaw: Math.atan2(V.dot(f.a, fr.east), V.dot(f.a, fr.north)) / D2R };
+}
+/** A big field where it is night now (Neptune up if possible). */
+function nightField(ms) {
+  const sun = A.sunBody(ms);
+  let best = null, bs = -9;
+  for (const f of machine.fields) { if (f.kind !== 1) continue; const sc = -V.dot(f.c, sun) + .25 * f.c[0]; if (sc > bs) { bs = sc; best = f; } }
+  return fieldSpawn(best);
+}
+function enterSurface(dir, yaw, pitch, alt) {
+  Object.assign(st.surf, { dir, yaw, pitch, alt, fly: alt > 3, vz: 0 });
+  st.mode = 'surface'; st.transit = null;
+  document.body.classList.add('on-surface'); document.body.classList.remove('in-orbit');
+  updateModeUI();
+}
+const slerp = (a, b, t) => {
+  const d = Math.acos(clamp(V.dot(a, b), -1, 1));
+  if (d < 1e-7) return a;
+  const s = Math.sin(d);
+  return V.add(V.mul(a, Math.sin((1 - t) * d) / s), V.mul(b, Math.sin(t * d) / s));
+};
+/** Fly from wherever we are down to a point on the ground (or back up to orbit). */
+function landAt(dir, yaw = null) {
+  if (st.transit) return;
+  const from = currentCam();
+  if (yaw === null) {
+    // face Neptune if it's up, otherwise north
+    const fr = tangentFrame(dir), nep = V.norm(V.sub([NEP_DIST, 0, 0], V.mul(dir, R)));
+    yaw = V.dot(nep, fr.up) > -.05 ? Math.atan2(V.dot(nep, fr.east), V.dot(nep, fr.north)) / D2R : 0;
   }
+  const to = { dir, yaw, pitch: 12, alt: 1.7 };
+  if (reduced) { fade(() => enterSurface(dir, yaw, 12, 1.7)); return; }
+  st.transit = { kind: 'down', t: 0, T: 8.5, from, to };
+  st.mode = 'transit';
+  document.body.classList.add('on-surface'); document.body.classList.remove('in-orbit');
+  updateModeUI();
+}
+function toOrbit() {
+  if (st.transit) return;
+  const from = currentCam(), n = V.norm(from.pos);
+  st.orbit.lat = Math.asin(n[2]) / D2R; st.orbit.lon = Math.atan2(n[1], n[0]) / D2R; st.orbit.dist = 6.5e6;
+  if (reduced) { fade(() => { st.mode = 'orbit'; updateModeUI(); }); return; }
+  st.transit = { kind: 'up', t: 0, T: 6, from };
+  st.mode = 'transit';
+  document.body.classList.remove('on-surface'); document.body.classList.add('in-orbit');
+  updateModeUI();
+}
+function fade(fn) { const v = $('veil'); v.classList.add('on'); setTimeout(() => { fn(); updateModeUI(); setTimeout(() => v.classList.remove('on'), 60); }, 260); }
+function transitCam(dt) {
+  const tr = st.transit;
+  if (!FROZEN) tr.t = Math.min(1, tr.t + dt / tr.T);
+  const t = tr.t, e = t * t * t * (t * (t * 6 - 15) + 10);
+  if (tr.kind === 'down') {
+    const fromDir = V.norm(tr.from.pos), d = V.norm(slerp(fromDir, tr.to.dir, smooth(0, .7, t)));
+    const a0 = V.len(tr.from.pos) - groundAt(fromDir), a1 = tr.to.alt;
+    // log descent, but never below a glide slope towards the landing point
+    const left = Math.acos(clamp(V.dot(d, tr.to.dir), -1, 1)) * R;
+    const alt = Math.max(Math.exp(Math.log(a0) + (Math.log(a1) - Math.log(a0)) * e), left * .55);
+    const pos = V.mul(d, groundAt(d) + alt);
+    Object.assign(st.surf, tr.to);
+    const end = surfCam();
+    const target = V.mul(tr.to.dir, groundAt(tr.to.dir));
+    const look = V.norm(V.sub(target, pos));
+    const k = smooth(.55, 1, t);
+    const f = V.norm(slerp(look, end.f, k));
+    const fr = tangentFrame(d), hd = V.add(V.mul(fr.north, Math.cos(tr.to.yaw * D2R)), V.mul(fr.east, Math.sin(tr.to.yaw * D2R)));
+    let up = V.norm(slerp(tr.from.up, hd, smooth(0, .45, t)));
+    up = V.norm(slerp(up, end.up, smooth(.55, 1, t)));
+    const fovy = tr.from.fovy + (end.fovy - tr.from.fovy) * smooth(.1, .8, t);
+    if (t >= 1) enterSurface(tr.to.dir, tr.to.yaw, tr.to.pitch, tr.to.alt);
+    return { pos, f, up, fovy };
+  }
+  const end = orbitCam(), fromDir = V.norm(tr.from.pos);
+  const a0 = V.len(tr.from.pos) - groundAt(fromDir), a1 = end.pos ? V.len(end.pos) - R : 6e6;
+  const alt = Math.exp(Math.log(Math.max(a0, 1)) + (Math.log(a1) - Math.log(Math.max(a0, 1))) * e);
+  const d = V.norm(slerp(fromDir, V.norm(end.pos), e));
+  const pos = V.mul(d, R + alt);
+  const f = V.norm(slerp(tr.from.f, V.norm(V.mul(pos, -1)), smooth(0, .5, t)));
+  const ff = V.norm(slerp(f, end.f, smooth(.5, 1, t)));
+  const up = V.norm(slerp(tr.from.up, end.up, smooth(.1, .9, t)));
+  const fovy = tr.from.fovy + (end.fovy - tr.from.fovy) * smooth(.3, 1, t);
+  if (t >= 1) { st.transit = null; st.mode = 'orbit'; updateModeUI(); }
+  return { pos, f, up, fovy };
+}
+function currentCam() { return st.mode === 'orbit' ? orbitCam() : st.mode === 'surface' ? surfCam() : st.lastCam; }
 
-  // ---- state shared with the UI --------------------------------------------------
-  const lamps = new Float32Array(32);
-  const hallA = new Float32Array(16), hallB = new Float32Array(16);
-  const palette = new Float32Array(W.PALETTE.flat());
-  W.HALLS.forEach((h, i) => { hallA.set([h.x, h.z, Math.cos(h.rot), Math.sin(h.rot)], i * 4); });
-  const targets = W.pickTargets();
-  let hover = 0;
-  let lastStep = -1, lastSunKey = '', needs = true, shadowDirty = true;
-  let caretaker = null;
+// ---------------------------------------------------------------------------
+// Movement on the ground and in the air
+function updateSurface(dt) {
+  const s = st.surf;
+  let fwd = (keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0) - (keys.has('KeyS') || keys.has('ArrowDown') ? 1 : 0);
+  let right = (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0);
+  if (stick) { fwd -= stick.y; right += stick.x; }
+  const m = Math.hypot(fwd, right); if (m > 1) { fwd /= m; right /= m; }
+  const fast = keys.has('ShiftLeft') || keys.has('ShiftRight');
+  let speed;
+  if (s.fly) speed = s.speed * (fast ? 5 : 1) * Math.max(1, s.alt / 400);
+  else speed = fast ? 7 : 1.8;
+  const fr = tangentFrame(s.dir);
+  const h = V.add(V.mul(fr.north, Math.cos(s.yaw * D2R)), V.mul(fr.east, Math.sin(s.yaw * D2R)));
+  const rt = V.cross(h, fr.up);
+  const mv = V.add(V.mul(h, fwd * speed * dt), V.mul(rt, right * speed * dt));
+  if (fwd || right) {
+    const r = groundAt(s.dir) + s.alt;
+    const nd = V.norm(V.add(s.dir, V.mul(mv, 1 / r)));
+    // keep the heading steady as we move over the curve
+    const nf = tangentFrame(nd), hh = V.norm(V.sub(h, V.mul(nd, V.dot(h, nd))));
+    s.yaw = Math.atan2(V.dot(hh, nf.east), V.dot(hh, nf.north)) / D2R;
+    s.dir = nd;
+  }
+  if (s.fly) {
+    const up = (keys.has('Space') || keys.has('KeyE') || (stick && stick.up) ? 1 : 0) - (keys.has('KeyQ') || keys.has('KeyC') || (stick && stick.down) ? 1 : 0);
+    s.alt = clamp(s.alt * Math.exp(up * dt * 1.2) + up * dt * 4, 1.7, 400e3);
+    if (s.alt > 300e3) { toOrbit(); }
+  } else {
+    s.vz -= GRAV * dt; s.alt += s.vz * dt;
+    if (s.alt <= 1.7) { s.alt = 1.7; s.vz = 0; }
+  }
+}
+function updateOrbit(dt) {
+  const o = st.orbit;
+  const k = (keys.has('ArrowLeft') || keys.has('KeyA') ? 1 : 0) - (keys.has('ArrowRight') || keys.has('KeyD') ? 1 : 0);
+  const l = (keys.has('ArrowUp') || keys.has('KeyW') ? 1 : 0) - (keys.has('ArrowDown') || keys.has('KeyS') ? 1 : 0);
+  const rate = 40 * Math.min(1, (o.dist - R) / 4e6 + .15);
+  o.lon += k * rate * dt; o.lat = clamp(o.lat + l * rate * dt, -85, 85);
+  const z = (keys.has('Equal') || keys.has('NumpadAdd') ? 1 : 0) - (keys.has('Minus') || keys.has('NumpadSubtract') ? 1 : 0);
+  if (z) zoom(-z * dt * 1.5);
+}
+function zoom(amount) { const o = st.orbit; o.dist = clamp(R + (o.dist - R) * Math.exp(amount), R + 90e3, 6e7); }
 
-  const ui = new UI({
-    simNow, realNow,
-    select: id => select(id),
-    toggleLapse: () => { lapse = !lapse; if (!lapse) lapseOffset = 0; needs = shadowDirty = true; return lapse; },
-    resetLapse: () => { lapse = false; lapseOffset = 0; needs = shadowDirty = true; },
-    toggleEarth: () => { earthView = !earthView; needs = shadowDirty = true; return earthView; },
-    isEarth: () => earthView, isLapse: () => lapse,
-    photo: () => { photoNext = true; needs = true; },
-    cycleQuality: () => {
-      const order = ['auto', 'high', 'medium', 'low'];
-      qualityMode = order[(order.indexOf(qualityMode) + 1) % order.length];
-      qName = qualityMode === 'auto' ? (coarse ? 'low' : 'medium') : qualityMode;
-      R.setQuality(qName, innerWidth, innerHeight, dpr());
-      autoSamples = []; needs = shadowDirty = true;
-      return qualityMode;
-    },
-    reset: () => { select(null); goal.yaw = HOME.yaw; goal.pitch = HOME.pitch; goal.dist = fitDist; goal.target = [...HOME.target]; needs = true; },
-    caretaker: () => caretaker,
+// ---------------------------------------------------------------------------
+// The loop
+function loop(now) {
+  if (document.hidden) return;
+  const dt = lastT ? Math.min(.1, (now - lastT) / 1000) : 1 / 60;
+  lastT = now;
+  if (!FROZEN && !reduced) st.time += dt;
+  if (st.playing) { st.year = Math.min(GROWN, st.year + dt * GROWN / 26); if (st.year >= GROWN) st.playing = false; updateYearUI(); }
+  if (st.mode === 'orbit') updateOrbit(dt);
+  if (st.mode === 'surface') updateSurface(dt);
+  const c = st.mode === 'transit' ? transitCam(dt) : currentCam();
+  st.lastCam = c;
+  const ms = Date.now() + st.hours * A.HOUR;
+  const view = lookDir([0, 0, 0], c.f, c.up);
+  const proj = perspective(c.fovy, canvas.width / canvas.height, .25, 1e11);
+  const vp = mul4(proj, view);
+  const cam = { pos: c.pos, vp, inv: invert4(vp), fovy: c.fovy };
+  const chunks = terrain.select(c.pos, frustumPlanes(vp), st.quality === 'low' ? .75 : st.quality === 'high' ? 1.2 : 1);
+  const alt = V.len(c.pos) - groundAt(V.norm(c.pos));
+  // 3D radiators near the camera, rebuilt as we move
+  let finRing = 0;
+  if (alt < 40e3) {
+    const o = st.instOrigin, moved = o ? Math.acos(clamp(V.dot(V.norm(o), V.norm(c.pos)), -1, 1)) * R : 1e9;
+    if (moved > 1500 && !st.instReq) { st.instReq = c.pos; workers[0].postMessage({ type: 'inst', cam: c.pos }); }
+    if (o && moved < 6000) finRing = 27000;
+  }
+  const booting = document.body.classList.contains('booting');
+  if (!booting || window.__ready) rnd.render({ cam, chunks, terrainCount: terrain.count, sun: A.sunBody(ms), nepLit: A.neptuneLit(ms), nepPole: A.neptunePole(ms),
+    nepSpin: (ms / (14.46 * A.HOUR)) * 2 * Math.PI % (2 * Math.PI) + st.time * .01, year: st.year, time: st.time, ss: st.ss,
+    finRing, orbit: alt > 300e3, netW: alt > 300e3 ? 1.15 : 1.9, geysers: true });
+  st.frames++;
+  if (st.frames % 10 === 0 || FROZEN) updateHUD(c, alt);
+  if (st.mode === 'surface') updateTags(c, vp, alt);
+  // ready for screenshots once the ground has arrived
+  if (booting && terrain.cache.size > 0 && st.frames > 2 && (terrain.busy === 0 || (now - (st.bootT || (st.bootT = now))) > 9000)) {
+    document.body.classList.remove('booting'); document.body.classList.add('running', st.mode === 'orbit' ? 'in-orbit' : 'on-surface');
+  }
+  const settled = !booting && terrain.busy === 0 && !st.instReq && (alt > 40e3 || st.instOrigin);
+  st.settle = settled ? (st.settle || 0) + 1 : 0;
+  if (st.settle > 3 && !window.__ready && (st.mode !== 'transit' || FROZEN)) window.__ready = true;
+  if (bench && window.__ready) {
+    bench.times.push(now);
+    if (bench.times.length > bench.n) { const t = bench.times, d = []; for (let i = 1; i < t.length; i++) d.push(t[i] - t[i - 1]); d.sort((a, b) => a - b); window.__bench = { median: d[d.length >> 1], frames: d.length, chunks: chunks.length, inst: rnd.inst ? rnd.inst.count : 0 }; bench = null; }
+  }
+  if (st.quality === 'auto' && !FROZEN) autoQuality(dt);
+  // frozen review frames stop once ready, so screenshots don't wait on a busy renderer
+  if (FROZEN && window.__ready && !bench) { st.stopped = true; return; }
+  requestAnimationFrame(loop);
+}
+let slow = 0, fastF = 0;
+function autoQuality(dt) {
+  if (dt > 1 / 28) { slow++; fastF = 0; } else if (dt < 1 / 55) { fastF++; slow = 0; }
+  if (slow > 40 && st.scale > .55) { st.scale = Math.max(.55, st.scale * .85); slow = 0; resize(); }
+  if (fastF > 240 && st.scale < 1) { st.scale = Math.min(1, st.scale * 1.1); fastF = 0; resize(); }
+}
+
+// ---------------------------------------------------------------------------
+// Two small labels on the ground: the nearest fusion plant, and the radiators beside it.
+function project(vp, rel) {
+  const x = vp[0] * rel[0] + vp[4] * rel[1] + vp[8] * rel[2] + vp[12], y = vp[1] * rel[0] + vp[5] * rel[1] + vp[9] * rel[2] + vp[13];
+  const w = vp[3] * rel[0] + vp[7] * rel[1] + vp[11] * rel[2] + vp[15];
+  if (w <= 1) return null;
+  return [(x / w * .5 + .5) * innerWidth, (.5 - y / w * .5) * innerHeight];
+}
+function placeTag(el, vp, cpos, P, dist, near, far) {
+  const s = project(vp, V.sub(P, cpos));
+  const vis = s && s[0] > 40 && s[0] < innerWidth - 40 && s[1] > 90 && s[1] < innerHeight - 40 ? 1 - smooth(near, far, dist) : 0;
+  if (s) el.style.transform = `translate(${s[0].toFixed(1)}px, ${s[1].toFixed(1)}px) translate(-50%, calc(-100% - 30px))`;
+  el.style.opacity = vis.toFixed(2);
+}
+function updateTags(c, vp, alt) {
+  const tp = $('tagPlant'), tf = $('tagFins'), inst = rnd.inst;
+  if (alt > 2500 || !inst || !inst.plantData || st.year <= 0) { tp.style.opacity = 0; tf.style.opacity = 0; return; }
+  const o = inst.origin, pd = inst.plantData;
+  let best = -1, bd = 1e9;
+  for (let i = 0; i < pd.length; i += 16) {
+    if (st.year < pd[i + 14] + .3) continue;
+    const d = Math.hypot(o[0] + pd[i] - c.pos[0], o[1] + pd[i + 1] - c.pos[1], o[2] + pd[i + 2] - c.pos[2]);
+    if (d < bd) { bd = d; best = i; }
+  }
+  if (best < 0) { tp.style.opacity = 0; tf.style.opacity = 0; return; }
+  const up = [pd[best + 3], pd[best + 4], pd[best + 5]], base = [o[0] + pd[best], o[1] + pd[best + 1], o[2] + pd[best + 2]];
+  placeTag(tp, vp, c.pos, V.add(base, V.mul(up, pd[best + 10] + 10)), bd, 3500, 9000);
+  // the radiators: a panel row on the other side of the avenue, 450 m further in
+  const f = machine.fields[pd[best + 15]];
+  if (!f) { tf.style.opacity = 0; return; }
+  const b = V.cross(f.a, f.c), side = V.dot(up, b) > 0 ? -1 : 1;
+  const d = V.norm(V.add(f.c, V.mul(V.add(V.mul(b, side * 1000), V.mul(f.a, -450)), 1 / R)));
+  const P = V.mul(d, groundAt(d) + 330);
+  placeTag(tf, vp, c.pos, P, V.len(V.sub(P, c.pos)), 3500, 9000);
+}
+
+// ---------------------------------------------------------------------------
+// Interface
+const fmtInt = n => Math.round(n).toLocaleString('en-US');
+function sci(x) { if (x <= 0) return '0'; const e = Math.floor(Math.log10(x)), m = x / 10 ** e; return m.toFixed(1) + ' × 10' + String(e).split('').map(c => '⁰¹²³⁴⁵⁶⁷⁸⁹'[+c] || '').join(''); }
+function power(w) { if (w >= 1e15) return (w / 1e15).toFixed(w >= 1e16 ? 0 : 1) + ' PW'; if (w >= 1e12) return (w / 1e12).toFixed(1) + ' TW'; if (w >= 1e9) return (w / 1e9).toFixed(1) + ' GW'; return (w / 1e6).toFixed(0) + ' MW'; }
+function updateYearUI() {
+  if (!machine) return;
+  const y = st.year, n = numbers(machine.fields, y);
+  $('year').value = String(Math.round(y));
+  $('year').setAttribute('aria-valuetext', String(Math.floor(calendarYear(y))));
+  $('yearOut').textContent = String(Math.floor(calendarYear(y)));
+  $('nArea').textContent = n.radiator > 0 ? fmtInt(n.radiator / 1e6) + ' km²' : '—';
+  $('nHeat').textContent = n.heat > 0 ? power(n.heat) : '—';
+  $('nHuman').textContent = n.heat > 0 ? (n.heat / 19e12 >= 1 ? fmtInt(n.heat / 19e12) + '×' : (n.heat / 19e12 * 100).toFixed(1) + '%') : '—';
+  $('nCompute').textContent = n.compute > 0 ? sci(n.compute) : '—';
+  $('nAI').textContent = n.ai > 0 ? sci(n.ai) + '×' : '—';
+  $('nShare').textContent = (n.share * 100).toFixed(n.share < .01 ? 2 : 1) + '%';
+  $('growBtn').textContent = st.playing ? 'Pause' : (y >= GROWN - 1 ? 'Watch it grow' : 'Grow');
+  $('growBtn').setAttribute('aria-pressed', String(st.playing));
+}
+function updateModeUI() {
+  const surf = st.mode !== 'orbit';
+  if (st.mode !== 'surface') { $('tagPlant').style.opacity = 0; $('tagFins').style.opacity = 0; }
+  $('landBtn').textContent = surf ? (innerWidth < 500 ? 'Orbit' : 'Back to orbit') : 'Land';
+  $('flyBtn').hidden = st.mode !== 'surface';
+  $('flyBtn').textContent = st.surf.fly ? 'Walk' : 'Fly';
+  $('hint').textContent = st.mode === 'orbit'
+    ? (touch ? 'Drag to turn · pinch to zoom · tap to land' : 'Drag to turn · scroll to zoom · click anywhere on Triton to land')
+    : st.mode === 'surface' ? (touch || innerWidth < 500 ? 'Left pad to move · drag to look' : 'Click to look around · W A S D to move · F to fly · O for orbit') : 'Descending…';
+}
+function updateHUD(c, alt) {
+  const n = V.norm(c.pos), lat = Math.asin(n[2]) / D2R, lon = Math.atan2(n[1], n[0]) / D2R;
+  $('where').textContent = `${Math.abs(lat).toFixed(1)}° ${lat < 0 ? 'S' : 'N'} · ${Math.abs(lon).toFixed(1)}° ${lon < 0 ? 'W' : 'E'}`;
+  $('alt').textContent = alt > 20e3 ? fmtInt(alt / 1000) + ' km up' : alt > 50 ? fmtInt(alt) + ' m up' : 'on the ground';
+  const now = Date.now(), lt = A.lightTime(now);
+  $('sky').textContent = Math.abs(st.hours) < .05 ? 'Sky: now' : `Sky: as ${A.when(now + st.hours * A.HOUR, now)}`;
+  $('delay').textContent = `Results sent home now reach Earth ${A.when(now + lt.ms, now)} (${A.span(lt.ms)} of light).`;
+}
+function bindInputs() {
+  $('sky').addEventListener('click', () => { st.hours = Math.abs(st.hours) < .05 ? (st.savedHours || 0) : (st.savedHours = st.hours, 0); });
+  $('year').addEventListener('input', e => { st.year = +e.target.value; st.playing = false; updateYearUI(); });
+  $('growBtn').addEventListener('click', () => { if (st.playing) st.playing = false; else { if (st.year >= GROWN - 1) st.year = 0; st.playing = true; } updateYearUI(); });
+  $('landBtn').addEventListener('click', () => (st.mode === 'orbit' ? landAt(st.surf.dir, 0) : toOrbit()));
+  $('flyBtn').addEventListener('click', toggleFly);
+  $('qualityBtn').addEventListener('click', () => { const o = ['auto', 'high', 'medium', 'low']; st.quality = o[(o.indexOf(st.quality) + 1) % 4]; st.scale = 1; resize(); });
+  $('photoBtn').addEventListener('click', photo);
+  $('atlasBtn').addEventListener('click', () => openPanel('atlas'));
+  $('helpBtn').addEventListener('click', () => openPanel('notes'));
+  document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', closePanels));
+  document.querySelectorAll('.overlay').forEach(el => el.addEventListener('pointerdown', e => { if (e.target === el) closePanels(); }));
+  document.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => {
+    const g = b.dataset.go; closePanels();
+    if (g === 'landing') landAt(offset(LANDING, 90, 30), 0);
+    if (g === 'dish') landAt(offset(DISH, 200, 2600), 20);
+    if (g === 'geyser') landAt(offset(GEYSERS[1].p, 140, 12000), -40);
+    if (g === 'night') { const f = nightField(Date.now() + st.hours * A.HOUR); landAt(f.dir, f.yaw); }
+  }));
+  $('map').addEventListener('click', e => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const lon = ((e.clientX - r.left) / r.width - .5) * 360, lat = (.5 - (e.clientY - r.top) / r.height) * 180;
+    closePanels(); landAt(latLonDir(lat, lon));
   });
-
-  function select(id) {
-    sel = id ? targets.find(t => t.id === id) || null : null;
-    if (sel) {
-      goal.target = [sel.c[0], sel.kind === 'geyser' ? 2.5 : Math.min(sel.c[1], 1.6), sel.c[2]];
-      goal.dist = Math.min(fitDist, sel.kind === 'hall' ? 21 : 19);
-      if (goal.pitch > 30 * D) goal.pitch = 24 * D;
-    } else {
-      goal.target = [...HOME.target]; goal.dist = fitDist;
-    }
-    ui.showCard(sel);
-    needs = true;
-  }
-  if (params.get('focus')) setTimeout(() => select(W.IDS.HALL0 + (+params.get('focus'))), 0);
-  if (params.get('select')) setTimeout(() => select(+params.get('select')), 0);
-
-  // ---- picking ---------------------------------------------------------------
-  function pick(cx, cy) {
-    const v = view();
-    const inv = m4.invert(v.vp);
-    const nx = (cx / innerWidth) * 2 - 1, ny = 1 - (cy / innerHeight) * 2;
-    const a = m4.apply(inv, [nx, ny, -1]), b = m4.apply(inv, [nx, ny, 1]);
-    const dir = v3.norm(v3.sub(b, a));
-    let best = null, bestT = 1e9;
-    const hits = [...targets];
-    // the caretaker is small: give her a generous box
-    if (caretaker && caretaker.visible) hits.push({ id: W.IDS.PERSON, kind: 'person', c: [caretaker.x, 0.45, caretaker.z], rot: 0, half: [0.7, 0.8, 0.7] });
-    for (const t of hits) {
-      const c = Math.cos(t.rot), s = Math.sin(t.rot);
-      const o = v3.sub(a, t.c);
-      const lo = [c * o[0] - s * o[2], o[1], s * o[0] + c * o[2]];
-      const ld = [c * dir[0] - s * dir[2], dir[1], s * dir[0] + c * dir[2]];
-      let tmin = -1e9, tmax = 1e9;
-      for (let k = 0; k < 3; k++) {
-        if (Math.abs(ld[k]) < 1e-9) { if (Math.abs(lo[k]) > t.half[k]) { tmin = 1e9; break; } continue; }
-        let t1 = (-t.half[k] - lo[k]) / ld[k], t2 = (t.half[k] - lo[k]) / ld[k];
-        if (t1 > t2) [t1, t2] = [t2, t1];
-        tmin = Math.max(tmin, t1); tmax = Math.min(tmax, t2);
-      }
-      if (tmin <= tmax && tmax > 0) {
-        const tt = tmin > 0 ? tmin : tmax;
-        const pri = t.kind === 'person' ? -3 : 0;
-        if (tt + pri < bestT) { bestT = tt + pri; best = t; }
-      }
-    }
-    return best;
-  }
-
-  // ---- input ------------------------------------------------------------------
-  const pointers = new Map();
-  let downAt = null, dragged = false, pinch0 = 0, dist0 = 0;
-  canvas.addEventListener('pointerdown', e => {
-    canvas.setPointerCapture(e.pointerId);
-    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    downAt = { x: e.clientX, y: e.clientY };
-    dragged = false;
-    if (pointers.size === 2) { const [p, q] = [...pointers.values()]; pinch0 = Math.hypot(p.x - q.x, p.y - q.y); dist0 = goal.dist; }
-    ui.dismissHint();
+  addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT' && e.target.type !== 'range') return;
+    if (e.code === 'Escape') { closePanels(); if (document.pointerLockElement) document.exitPointerLock(); return; }
+    if (document.querySelector('.overlay.open')) return;
+    keys.add(e.code);
+    if (e.repeat) return;
+    if (e.code === 'KeyF' && st.mode === 'surface') toggleFly();
+    if (e.code === 'Space' && st.mode === 'surface' && !st.surf.fly && st.surf.alt <= 1.75) st.surf.vz = 3.2;
+    if (e.code === 'KeyO') { if (st.mode === 'surface') toOrbit(); }
+    if (e.code === 'KeyL') { if (st.mode === 'orbit') landAt(st.surf.dir, 0); }
+    if (e.code === 'KeyM') openPanel('atlas');
+    if (e.code === 'KeyG') $('growBtn').click();
+    if (e.code === 'KeyP') photo();
+    if (e.code === 'KeyH') document.body.classList.toggle('ui-hidden');
+    if (e.code === 'Slash') openPanel('notes');
+    if (['Space', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
   });
-  canvas.addEventListener('pointermove', e => {
-    const p = pointers.get(e.pointerId);
-    if (!p) {
-      if (e.pointerType === 'mouse') {
-        const h = pick(e.clientX, e.clientY);
-        const id = h ? h.id : 0;
-        if (id !== hover) { hover = id; canvas.style.cursor = id ? 'pointer' : 'grab'; needs = true; }
-      }
-      return;
-    }
-    const dx = e.clientX - p.x, dy = e.clientY - p.y;
-    p.x = e.clientX; p.y = e.clientY;
-    if (Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 6) dragged = true;
-    if (pointers.size === 1) {
-      goal.yaw -= dx * 0.0055;
-      goal.pitch = clamp(goal.pitch + dy * 0.0045, 6 * D, 72 * D);
-    } else if (pointers.size === 2) {
-      const [a, b] = [...pointers.values()];
-      const d = Math.hypot(a.x - b.x, a.y - b.y);
-      if (pinch0 > 0) goal.dist = clamp(dist0 * pinch0 / d, 9, fitDist * 1.6);
-    }
-    needs = true;
-  });
-  const up = e => {
-    if (!pointers.has(e.pointerId)) return;
-    pointers.delete(e.pointerId);
-    if (!dragged && pointers.size === 0 && downAt) {
-      const h = pick(e.clientX, e.clientY);
-      select(h ? h.id : null);
-    }
-    if (pointers.size < 2) pinch0 = 0;
-  };
-  canvas.addEventListener('pointerup', up);
-  canvas.addEventListener('pointercancel', up);
-  canvas.addEventListener('pointerleave', () => { if (hover) { hover = 0; needs = true; } });
+  addEventListener('keyup', e => keys.delete(e.code));
+  addEventListener('blur', () => keys.clear());
   canvas.addEventListener('wheel', e => {
     e.preventDefault();
-    goal.dist = clamp(goal.dist * Math.exp(e.deltaY * 0.0011), 9, fitDist * 1.6);
-    needs = true; ui.dismissHint();
+    if (st.mode === 'orbit') zoom(e.deltaY * .0012);
+    else if (st.mode === 'surface' && st.surf.fly) st.surf.speed = clamp(st.surf.speed * Math.exp(-e.deltaY * .0015), 5, 20000);
   }, { passive: false });
-  addEventListener('keydown', e => {
-    if (e.target.closest && e.target.closest('input,textarea')) return;
-    if (ui.dialogOpen()) { if (e.key === 'Escape') ui.closeDialog(); return; }
-    const k = e.key.toLowerCase();
-    const step = e.shiftKey ? 0.2 : 0.08;
-    if (k === 'arrowleft' || k === 'a') goal.yaw += step;
-    else if (k === 'arrowright' || k === 'd') goal.yaw -= step;
-    else if (k === 'arrowup' || k === 'w') goal.pitch = clamp(goal.pitch + step * 0.6, 6 * D, 72 * D);
-    else if (k === 'arrowdown' || k === 's') goal.pitch = clamp(goal.pitch - step * 0.6, 6 * D, 72 * D);
-    else if (k === '+' || k === '=') goal.dist = clamp(goal.dist * 0.88, 9, fitDist * 1.6);
-    else if (k === '-' || k === '_') goal.dist = clamp(goal.dist / 0.88, 9, fitDist * 1.6);
-    else if (k >= '1' && k <= '4') select(W.IDS.HALL0 + (+k - 1));
-    else if (k === 'escape') select(null);
-    else if (k === 't') ui.clickLapse();
-    else if (k === 'e') ui.clickEarth();
-    else if (k === 'p') ui.photo();
-    else if (k === 'h') document.body.classList.toggle('ui-hidden');
-    else if (k === 'r') ui.reset();
-    else if (k === '?' || k === 'n') ui.openNotes();
-    else return;
-    needs = true;
+  const pts = new Map();
+  canvas.addEventListener('pointerdown', e => {
+    canvas.setPointerCapture(e.pointerId);
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size === 2 && st.mode === 'orbit') { const [a, b] = [...pts.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), dist: st.orbit.dist }; }
+    dragging = { x: e.clientX, y: e.clientY, moved: 0, id: e.pointerId };
   });
-  addEventListener('resize', () => {
-    R.resize(innerWidth, innerHeight, dpr());
-    const oldDist = fitDist, oldYaw = HOME.yaw;
-    fit(); HOME.yaw = homeYaw();
-    if (Math.abs(goal.dist - oldDist) < 0.5) goal.dist = cam.dist = fitDist;
-    if (Math.abs(goal.yaw - oldYaw) < 0.01) goal.yaw = cam.yaw = HOME.yaw;
-    needs = true;
+  canvas.addEventListener('pointermove', e => {
+    if (document.pointerLockElement === canvas && st.mode === 'surface') { look(e.movementX, e.movementY); return; }
+    if (!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinch && pts.size === 2) { const [a, b] = [...pts.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); st.orbit.dist = clamp(R + (pinch.dist - R) * pinch.d / Math.max(d, 1), R + 90e3, 6e7); return; }
+    if (!dragging || dragging.id !== e.pointerId) return;
+    const dx = e.clientX - dragging.x, dy = e.clientY - dragging.y;
+    dragging.x = e.clientX; dragging.y = e.clientY; dragging.moved += Math.abs(dx) + Math.abs(dy);
+    if (st.mode === 'orbit') {
+      const k = .22 * Math.min(1, (st.orbit.dist - R) / 5e6 + .12);
+      st.orbit.lon -= dx * k; st.orbit.lat = clamp(st.orbit.lat + dy * k, -85, 85);
+    } else if (st.mode === 'surface') look(dx, dy);
   });
-  // Pause when the tab is hidden; resume (once) when it comes back.
-  let running = false;
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && !running) { running = true; lastT = performance.now(); needs = true; requestAnimationFrame(loop); }
-  });
-
-  // ---- per-frame state ----------------------------------------------------------
-  let photoNext = false;
-  function state(simMs, tA, step) {
-    const s = A.sky(simMs);
-    const sunFade = smooth(-0.3, 2.2, s.sunAlt);
-    const lit = s.lit;
-    const sunCol = [1.0 * 1.8 * sunFade, 0.93 * 1.8 * sunFade, 0.8 * 1.8 * sunFade];
-    const nk = (0.14 + 0.86 * lit) * (1.15 + (0.36 - 1.15) * sunFade);
-    const nepCol = [0.5 * nk, 0.74 * nk, 0.88 * nk];
-    const keyIsSun = sunFade > 0.12;
-    const ambTop = [0.032 + 0.038 * sunFade, 0.027 + 0.031 * sunFade, 0.058 + 0.057 * sunFade];
-    const bounce = 0.2 * sunFade * Math.sqrt(Math.max(s.sun[1], 0.02));
-    const ambBottom = [0.95 * bounce + 0.02 * lit, 0.84 * bounce + 0.03 * lit, 0.84 * bounce + 0.04 * lit];
-    const nightExp = 1.6 + 1.2 * (1 - lit);
-    const exposure = nightExp + (1.0 - nightExp) * sunFade;
-    const night = 1 - sunFade;
-    // lights
-    const jobs = [0, 1, 2, 3].map(h => jobAt(h, simMs));
-    const busy = jobs.map(j => j.running ? (j.archive ? 0.25 : 0.95) : 0.12);
-    W.HALLS.forEach((h, i) => hallB.set([h.W / 2, h.L / 2, 1, (0.3 + 0.7 * night) * (jobs[i].running ? 1 : 0.55) * 0.85], i * 4));
-    const lampI = 0.15 + 0.85 * night;
-    let li = 0;
-    for (const [x, z] of W.LAMPS) { lamps.set([x + 0.3, 1.24, z, 0.55 * lampI], li * 4); li++; }
-    const cab = (lx, lz, y, I) => { const c = Math.cos(W.CABIN.rot), s2 = Math.sin(W.CABIN.rot); lamps.set([W.CABIN.x + c * lx + s2 * lz, y, W.CABIN.z - s2 * lx + c * lz, I], li * 4); li++; };
-    cab(0.42, -1.1, 0.7, 0.5 * (0.3 + 0.7 * night));
-    cab(-0.38, -1.15, 0.95, 0.35 * lampI);
-    lamps.set([W.REACTOR.x, 2.1, W.REACTOR.z, 0.18 * lampI], li * 4); li++;
-    lamps.set([W.DISH.x, 1.0, W.DISH.z, 0], li * 4);
-    // the dish points home (Earth is within 2° of the Sun from here)
-    const sunKey = (Math.round(s.sun[0] * 400) + ',' + Math.round(s.sun[1] * 400) + ',' + Math.round(s.sun[2] * 400));
-    if (sunKey !== lastSunKey) {
-      lastSunKey = sunKey; shadowDirty = true;
-      const el = Math.asin(clamp(s.sun[1], -1, 1));
-      let d = s.sun;
-      if (el < 6 * D) { const az = Math.atan2(s.sun[0], s.sun[2]); const e2 = el < 0 ? 64 * D : 6 * D; d = [Math.sin(az) * Math.cos(e2), Math.sin(e2), Math.cos(az) * Math.cos(e2)]; }
-      R.updateDish(d);
+  const up = e => {
+    pts.delete(e.pointerId); if (pts.size < 2) pinch = null;
+    if (dragging && dragging.id === e.pointerId) {
+      if (dragging.moved < 6) click(e);
+      dragging = null;
     }
-    return { sky: s, sunFade, sunCol, nepCol, keyIsSun, ambTop, ambBottom, exposure, busy, jobs };
+  };
+  canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
+  // touch joystick on the surface
+  const pad = $('stick'), knob = $('knob');
+  pad.addEventListener('pointerdown', e => { pad.setPointerCapture(e.pointerId); stick = { x: 0, y: 0 }; moveStick(e); });
+  pad.addEventListener('pointermove', e => { if (stick) moveStick(e); });
+  const endStick = () => { stick = null; knob.style.transform = ''; };
+  pad.addEventListener('pointerup', endStick); pad.addEventListener('pointercancel', endStick);
+  function moveStick(e) { const r = pad.getBoundingClientRect(), x = e.clientX - r.left - r.width / 2, y = e.clientY - r.top - r.height / 2, m = Math.hypot(x, y), k = m > 40 ? 40 / m : 1;
+    stick.x = x * k / 40; stick.y = y * k / 40; knob.style.transform = `translate(${x * k}px,${y * k}px)`; }
+  for (const [id, prop] of [['upBtn', 'up'], ['downBtn', 'down']]) {
+    const b = $(id);
+    b.addEventListener('pointerdown', () => { if (!st.surf.fly) toggleFly(); stick = stick || { x: 0, y: 0 }; stick[prop] = true; });
+    b.addEventListener('pointerup', () => { if (stick) stick[prop] = false; });
   }
-
-  // ---- auto quality -----------------------------------------------------------
-  let autoSamples = [];
-  function autoQuality(dt) {
-    if (qualityMode !== 'auto' || fixedT !== null) return;
-    autoSamples.push(dt);
-    if (autoSamples.length < 50) return;
-    const sorted = autoSamples.slice().sort((a, b) => a - b);
-    const med = sorted[sorted.length >> 1];
-    autoSamples = [];
-    if (med > 26 && qName !== 'low') { qName = qName === 'high' ? 'medium' : 'low'; R.setQuality(qName, innerWidth, innerHeight, dpr()); needs = shadowDirty = true; ui.setQualityLabel('auto · ' + qName); }
-    else if (med < 9 && qName === 'medium' && !coarse) { qName = 'high'; R.setQuality(qName, innerWidth, innerHeight, dpr()); needs = shadowDirty = true; ui.setQualityLabel('auto · ' + qName); }
+}
+function look(dx, dy) { st.surf.yaw += dx * .15; st.surf.pitch = clamp(st.surf.pitch - dy * .15, -85, 85); }
+function toggleFly() {
+  const s = st.surf; s.fly = !s.fly; s.vz = 0;
+  if (s.fly && s.alt < 30) s.alt = 30;
+  updateModeUI();
+}
+function click(e) {
+  if (st.mode === 'orbit') {
+    // which point on Triton is under the pointer?
+    const c = st.lastCam, r = canvas.getBoundingClientRect();
+    const view = lookDir([0, 0, 0], c.f, c.up), proj = perspective(c.fovy, canvas.width / canvas.height, .25, 1e11);
+    const inv = invert4(mul4(proj, view));
+    const x = (e.clientX - r.left) / r.width * 2 - 1, y = 1 - (e.clientY - r.top) / r.height * 2;
+    const p = [inv[0] * x + inv[4] * y - inv[8] + inv[12], inv[1] * x + inv[5] * y - inv[9] + inv[13], inv[2] * x + inv[6] * y - inv[10] + inv[14]];
+    const w = inv[3] * x + inv[7] * y - inv[11] + inv[15];
+    const d = V.norm([p[0] / w, p[1] / w, p[2] / w]);
+    const b = V.dot(c.pos, d), cc = V.dot(c.pos, c.pos) - R * R, disc = b * b - cc;
+    if (disc > 0) { const t = -b - Math.sqrt(disc); if (t > 0) landAt(V.norm(V.add(c.pos, V.mul(d, t)))); }
+  } else if (st.mode === 'surface' && !touch && canvas.requestPointerLock) {
+    try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (err) { /* drag still works */ }
   }
-
-  // ---- the loop -----------------------------------------------------------------
-  let lastT = performance.now(), lastUi = 0, lastRender = 0, readyFrames = 0, lastSt = null, lastLapse = performance.now(), renderedLast = false;
-  const bench = params.get('bench') ? { n: +params.get('bench') || 60, times: [] } : null;
-  const benchPx = new Uint8Array(4);
-  function loop(now) {
-    if (document.hidden) { running = false; return; }
-    const dt = Math.min(0.1, (now - lastT) / 1000);
-    lastT = now;
-    // Time-lapse runs on wall-clock time, so a slow device doesn't slow Triton down.
-    if (lapse) { lapseOffset += Math.min(0.5, (now - lastLapse) / 1000) * 2 * A.HOUR; needs = true; }
-    lastLapse = now;
-    // How long the last rendered frame really took shows up in this rAF's interval.
-    if (renderedLast && !lapse && !bench && readyFrames > 8) autoQuality(dt * 1000);
-    renderedLast = false;
-    // ease the camera
-    const k = reduced ? 1 : 1 - Math.exp(-dt * 7);
-    let moving = false;
-    for (const key of ['yaw', 'pitch', 'dist']) { const d = goal[key] - cam[key]; if (Math.abs(d) > 1e-4) { cam[key] += d * k; moving = true; } }
-    for (let i = 0; i < 3; i++) { const d = goal.target[i] - cam.target[i]; if (Math.abs(d) > 1e-4) { cam.target[i] += d * k; moving = true; } }
-    // Stop-motion: things in the world move on twos, twelve steps a second.
-    const tA = animTime();
-    const step = Math.floor(tA * 12);
-    if (step !== lastStep || moving || bench || readyFrames < 6 || now - lastRender > 20000) needs = true;
-    if (needs) {
-      needs = false;
-      lastRender = now;
-      const simMs = simNow();
-      const tq = step / 12;
-      if (step !== lastStep) {
-        lastStep = step;
-        R.updatePuffs(tq, step);
-        caretaker = W.caretakerAt(tq);
-        R.updatePerson(caretaker, caretaker.visible ? W.height(caretaker.x, caretaker.z) : 0);
-        shadowDirty = true;
-      }
-      const st = lastSt = state(simMs, tq, step);
-      const v = view();
-      const focus = v3.len(v3.sub(v.eye, cam.target));
-      const frameState = {
-        vp: v.vp, eye: v.eye, skyInv: v.skyInv, pix: v.pix,
-        sunDir: st.sky.sun, sunCol: st.sunCol, nepDir: st.sky.neptune, nepCol: st.nepCol, nepPole: A.NEPTUNE_POLE,
-        keyDir: st.keyIsSun ? st.sky.sun : st.sky.neptune, keyIsSun: st.keyIsSun,
-        ambTop: st.ambTop, ambBottom: st.ambBottom, exposure: st.exposure, skyExposure: st.exposure,
-        sunVis: smooth(-0.4, 0.6, st.sky.sunAlt), nepR: Math.atan(24764 / 354759), spin: st.sky.neptuneSpin,
-        t: tq, step, hover, sel: sel ? sel.id : 0, hallA, hallB, lamps, busy: st.busy, palette,
-        focus, aperture: 1.25, maxBlur: v.f.portrait ? 9 : 12, skyCoc: 0.28, dof: params.get('dof') === '0' ? 0 : 1,
-        shadowDirty,
-        // Daylight here is about as bright as a dim room on Earth, so lit windows still glow at noon.
-        windows: 1 + 1.1 * st.sunFade,
-      };
-      shadowDirty = false;
-      const tf = performance.now();
-      R.frame(frameState);
-      if (bench) { gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, benchPx); bench.times.push(performance.now() - tf); }
-      if (photoNext) { photoNext = false; ui.savePhoto(canvas); }
-      if (++readyFrames === 3) { boot.classList.remove('show'); document.body.classList.add('entered'); ui.entered(); }
-      if (readyFrames === 5 && !bench) window.__ready = true;
-      renderedLast = true;
-    }
-    if (now - lastUi > 1000 || (lapse && now - lastUi > 120)) { lastUi = now; ui.update(simNow()); }
-    if (bench && bench.times.length >= bench.n) {
-      const s = bench.times.slice(5).sort((a, b) => a - b);
-      window.__bench = { median: s[s.length >> 1], p90: s[Math.floor(s.length * 0.9)], mean: s.reduce((a, b) => a + b, 0) / s.length, w: R.w, h: R.h, q: qName };
-      window.__ready = true;
-      running = false;
-      return;
-    }
-    requestAnimationFrame(loop);
+}
+function openPanel(id) {
+  closePanels();
+  $(id).classList.add('open');
+  if (id === 'atlas') drawAtlas();
+  if (document.pointerLockElement) document.exitPointerLock();
+  keys.clear();
+}
+function closePanels() { document.querySelectorAll('.overlay.open').forEach(el => el.classList.remove('open')); }
+function photo() {
+  requestAnimationFrame(() => canvas.toBlob(b => {
+    if (!b) return;
+    const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'triton-' + Math.floor(calendarYear(st.year)) + '.png'; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }));
+}
+// The atlas: Triton unrolled, with the mind as far as it has grown.
+function drawAtlas() {
+  const cv = $('map'), ctx = cv.getContext('2d'), W = cv.width, H = cv.height;
+  const img = ctx.createImageData(W, H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const lat = (.5 - (y + .5) / H) * 180, lon = ((x + .5) / W - .5) * 360, d = latLonDir(lat, lon);
+    const cap = regionAt(d, 0), cant = regionAt(d, 1), str = regionAt(d, 2), col = regionAt(d, 3);
+    let c = [218, 208, 190];
+    if (cant > .5) c = [182, 192, 160];
+    if (col > .55) c = [132, 188, 204];
+    if (cap > .5) c = str > .5 ? [140, 74, 80] : [242, 206, 200];
+    const o = (y * W + x) * 4; img.data[o] = c[0]; img.data[o + 1] = c[1]; img.data[o + 2] = c[2]; img.data[o + 3] = 255;
   }
-  ui.setQualityLabel(qualityMode === 'auto' ? 'auto' : qualityMode);
-  if (params.get('ui') === '0') document.body.classList.add('ui-hidden');
-  running = true;
-  requestAnimationFrame(loop);
+  ctx.putImageData(img, 0, 0);
+  const P = (p) => [(Math.atan2(p[1], p[0]) / (2 * Math.PI) + .5) * W, (.5 - Math.asin(p[2]) / Math.PI) * H];
+  ctx.fillStyle = 'rgba(150,30,50,.85)';
+  for (const f of machine.fields) { if (f.birth > st.year) continue; const [x, y] = P(f.c), g = Math.min(1, Math.sqrt((st.year - f.birth) / f.years)); const r = f.r * g / R / Math.PI * H; ctx.beginPath(); ctx.ellipse(x, y, r / Math.max(.1, Math.cos(Math.asin(f.c[2]))), r, 0, 0, 7); ctx.fill(); }
+  const nd = machine.nodes;
+  ctx.strokeStyle = '#c99a3a'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let i = 1; i < nd.length / 6; i++) {
+    const par = nd[i * 6 + 3]; if (par < 0 || nd[i * 6 + 4] > st.year || nd[i * 6 + 5] < 3) continue;
+    const a = P([nd[par * 6], nd[par * 6 + 1], nd[par * 6 + 2]]), b = P([nd[i * 6], nd[i * 6 + 1], nd[i * 6 + 2]]);
+    if (Math.abs(a[0] - b[0]) > W / 2) continue;
+    ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]);
+  }
+  ctx.stroke();
+  const mark = (p, label) => { const [x, y] = P(p); ctx.fillStyle = '#fff4d6'; ctx.strokeStyle = '#1b2350'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, 4, 0, 7); ctx.fill(); ctx.font = '600 12px system-ui,sans-serif'; ctx.strokeText(label, x + 7, y + 4); ctx.fillText(label, x + 7, y + 4); };
+  mark(LANDING, 'Landing'); mark(DISH, 'The dish'); mark(GEYSERS[1].p, 'Geyser');
+  const here = V.norm(st.lastCam.pos), [hx, hy] = P(here);
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(hx, hy, 7, 0, 7); ctx.stroke();
 }
