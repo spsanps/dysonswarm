@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#24180f">
+<title>Terraforming Venus</title>
+<meta name="description" content="Terraform Venus yourself: put up a sunshade, freeze the air out as carbon dioxide rain and snow, pave over the ice, lay soil, bring water. Printed live in your browser as a four-ink poster.">
+<meta name="author" content="San Kala">
+<link rel="canonical" href="https://dysonswarm.com/venus/">
+<link rel="icon" type="image/svg+xml" href="./images/favicon.svg">
+<link rel="preload" href="./fonts/libre-caslon-text-normal-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="./styles.css">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Dyson Swarm">
+<meta property="og:title" content="Terraforming Venus">
+<meta property="og:description" content="Shade Venus from the Sun, freeze its air, pave over the ice and build a world on top. Printed live in your browser as a four-ink poster.">
+<meta property="og:url" content="https://dysonswarm.com/venus/">
+<meta property="og:image" content="https://dysonswarm.com/venus/images/social-preview.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A four-ink poster view from a headland on Venus over a bay of hexagonal islands, two hundred years after terraforming began.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Terraforming Venus">
+<meta name="twitter:description" content="Shade Venus from the Sun, freeze its air, pave over the ice and build a world on top.">
+<meta name="twitter:image" content="https://dysonswarm.com/venus/images/social-preview.jpg">
+</head>
+<body>
+<noscript><div class="nojs"><h1>Terraforming Venus</h1><p>One place on Venus, two hundred years. This needs JavaScript and WebGL2.</p><img src="./images/world-preview.jpg" alt="A painted view from a headland on Venus over a terraformed bay."><p><a href="/">More space interactives</a> · <a href="https://sankala.me">San Kala</a></p></div></noscript>
+
+<!-- The intro: two stills from the world, one slowly becoming the other -->
+<section id="intro" class="intro">
+  <div class="stills" aria-hidden="true">
+    <img class="still still-a" src="./images/world-preview-today.jpg" alt="">
+    <img class="still still-b" data-src="./images/world-preview.jpg" alt="">
+  </div>
+  <div class="plate">
+    <p class="kicker">Venus · Lakshmi Planum · 61.6° N</p>
+    <h1>Terraforming Venus</h1>
+    <p class="lede">Shade it from the Sun, freeze its air, pave over the ice, and build a world on top.</p>
+    <p>Paul Birch worked out in 1991 how this could be done in about two hundred years. You do it here, one step at a time, standing on a real headland above a real bay, or from orbit.</p>
+    <div class="actions">
+      <button id="enter" class="primary" type="button">Begin <span aria-hidden="true">↗</span></button>
+      <button id="introNotes" class="quiet" type="button">How it works</button>
+    </div>
+    <p class="small">Printed live in your browser, as a 1920s poster in four inks. About 250 KB loads when you enter, and 190 KB more if you go to orbit. Needs WebGL2; a desktop with a graphics card looks best.</p>
+    <p class="small links"><a href="/">Dyson Swarm</a> · <a href="https://sankala.me">San Kala</a> · <a href="https://www.youtube.com/@paperrobotsfilms">Paper Robots</a></p>
+  </div>
+</section>
+
+<div id="fade" class="fade" aria-hidden="true"></div>
+<canvas id="world" tabindex="0" aria-label="A poster view from a headland on Venus. Drag to look around; the timeline below changes the year."></canvas>
+
+<div id="ui" class="ui" hidden>
+  <header class="top">
+    <div class="brand">
+      <span class="name">Terraforming Venus</span>
+      <span class="by"><a href="/">Dyson Swarm</a> · <a href="https://sankala.me">San Kala</a></span>
+    </div>
+    <nav class="tools" aria-label="Tools">
+      <button id="flyBtn" type="button" title="Fly over the plains (F)">Fly</button>
+      <button id="orbitBtn" type="button" title="See the whole planet (O)">Orbit</button>
+      <button id="placesBtn" type="button">Places</button>
+      <button id="notesBtn" type="button">Notes</button>
+      <button id="photoBtn" class="wide-only" type="button" title="Save this view (P)">Photo</button>
+      <button id="qualityBtn" class="wide-only" type="button" title="Rendering quality">Quality: auto</button>
+      <button id="hideBtn" type="button" title="Hide the interface (H)" aria-label="Hide the interface">Hide</button>
+    </nav>
+  </header>
+
+  <section class="dock" aria-label="Time">
+    <div class="readout">
+      <div class="when">
+        <span class="label">Year</span>
+        <span id="yearNum" class="year">0</span>
+        <span id="stageName" class="stage">Today</span>
+      </div>
+      <dl class="facts">
+        <div><dt>Air</dt><dd id="factAir">95 bar</dd></div>
+        <div><dt>Ground</dt><dd id="factTemp">464 °C</dd></div>
+        <div><dt>Light</dt><dd id="factLight">orange haze</dd></div>
+      </dl>
+    </div>
+    <p id="caption" class="caption" aria-live="polite"></p>
+    <div class="act">
+      <button id="actBtn" class="act-btn" type="button">Put up the shade</button>
+      <span id="actNote" class="act-note"></span>
+      <button id="finishBtn" class="act-finish" type="button" hidden>Let the colonies finish</button>
+    </div>
+    <div class="controls">
+      <button id="playBtn" class="play" type="button" aria-label="Play the years">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path class="i-play" d="M6 4l10 6-10 6z"/><path class="i-pause" d="M5 4h3.5v12H5zM11.5 4H15v12h-3.5z"/></svg>
+      </button>
+      <div class="timeline">
+        <div id="stages" class="stages" aria-hidden="true"></div>
+        <input id="year" type="range" min="0" max="1000" step="1" value="0" aria-label="Year since terraforming began">
+        <div class="ticks" aria-hidden="true"></div>
+      </div>
+      <div class="hour">
+        <label for="hour"><span class="label">Hour</span> <span id="hourNum">10:00</span></label>
+        <input id="hour" type="range" min="0" max="24" step="0.05" value="10" aria-label="Hour of the day">
+        <span id="hourNote" class="hournote"></span>
+      </div>
+    </div>
+  </section>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div class="flypad" id="flypad" aria-hidden="true"><div id="stick" class="stick"><i id="knob"></i></div><div class="updown"><button id="flyUp" type="button">↑</button><button id="flyDown" type="button">↓</button></div></div>
+  <p class="hint" id="hint">Drag to look around · scroll to zoom · press the button below to begin</p>
+</div>
+
+<div id="places" class="sheet" role="dialog" aria-modal="true" aria-labelledby="placesTitle" hidden>
+  <div class="sheet-inner">
+    <button class="close" type="button" data-close aria-label="Close">×</button>
+    <p class="kicker">Where you are</p>
+    <h2 id="placesTitle">The southern edge of Lakshmi Planum</h2>
+    <div class="places-grid">
+      <figure class="locator"><canvas id="locator" width="480" height="480" aria-label="Map of Ishtar Terra from Magellan radar altimetry, with the standpoint marked."></canvas><figcaption>Ishtar Terra from Magellan’s radar altimeter. Darker is lower. The bay is where the carbon dioxide sea collects.</figcaption></figure>
+      <div id="viewList" class="view-list"></div>
+    </div>
+  </div>
+</div>
+
+<div id="notes" class="sheet" role="dialog" aria-modal="true" aria-labelledby="notesTitle" hidden>
+  <div class="sheet-inner prose">
+    <button class="close" type="button" data-close aria-label="Close">×</button>
+    <p class="kicker">Notes</p>
+    <h2 id="notesTitle">How this is meant to work</h2>
+    <p>This follows Paul Birch’s 1991 paper <a href="https://ui.adsabs.harvard.edu/abs/1991JBIS...44..157B">“Terraforming Venus Quickly”</a> (Journal of the British Interplanetary Society 44, 157–167). Year 0 is his 2040, and most of the dates are his.</p>
+    <ol class="steps">
+      <li><b>The shade.</b> A mirror about twice as wide as Venus, a quarter of the way to the Sun, sends the sunlight past the planet. Venus cools by radiating into space.</li>
+      <li><b>Rain.</b> The sulphuric acid clouds rain out. Below 31 °C, carbon dioxide condenses and rains as a liquid into the lowlands.</li>
+      <li><b>CO2 snow.</b> At −57 °C and 5 bar (the triple point) the seas freeze. The rest falls as snow, leaving about two bar of nitrogen.</li>
+      <li><b>Paving.</b> Birch covers the frozen seas with hollow blocks or foamed rock, lowered from floating colonies, so they stay frozen when the light returns. Covering the land too, with plastic sheet, is my addition.</li>
+      <li><b>Soil.</b> Laying soil on top of the paving is also mine. A soletta, a mirror in a 24-hour orbit, gives Venus a day; Venus itself turns once in 243 days.</li>
+      <li><b>Water.</b> An ice moon (Birch suggests Enceladus) is broken up and dropped in over decades.</li>
+      <li><b>Green.</b> Plants turn the leftover carbon dioxide into oxygen. People live under tents until the air is breathable, and the floating colonies come down onto the sea.</li>
+    </ol>
+    <h3>What you do</h3>
+    <p>Each stage has one button. Some just let the years pass. Two are work: lay the paving and spread the soil by hand, one hexagon at a time (each is 1.2 km across), before the colonies’ machines take over. Fly over the plains with F, or go up to orbit to see the shade between Venus and the Sun and the whole planet change.</p>
+    <h3>What is real here</h3>
+    <p>The land is real at large scale: NASA’s Magellan radar altimetry of Ishtar Terra (4.6 km per pixel, public domain), around 61.6° N, 5° W, south-west of Maxwell Montes. The bay below you is where Magellan’s lowlands are, and the CO2 sea level comes from Magellan’s global elevations. Heights are drawn 1.8 times taller than they are, as space artists always did. The headland, the rocks, the hexagons and everything smaller are invented. The globe in orbit uses the same Magellan data.</p>
+    <p>The air is a rough model: scattering grows with how much gas is above you, so the sky turns blue only once the carbon dioxide is gone. The CO2 condenses along its real vapour-pressure curve. Two things are drawn, not measured. Today’s air is drawn about fifteen times clearer than it is; really you would see only a few kilometres into the orange. And the long night is lit as if by moonlight so you can see; Venus has no moon, and under the shade it would be close to black.</p>
+    <h3>What is imagined</h3>
+    <p>All of it as a plan. Birch’s paper is an engineering sketch, not a validated design, and nobody has checked how fast any of this could go. His paper also has heat pipes to cool the deep air, floating colonies at the one-bar level lit by their own small mirrors, and floaters that build the cover disks; they are all here, though their look is invented. Covering the land with plastic sheet and then soil is my addition to his plan. The town, the farms, the colony’s shape and the timing of the land stages are invented too.</p>
+    <h3>Controls</h3>
+    <dl class="keys">
+      <dt>Drag</dt><dd>Look around (in orbit: turn the planet)</dd>
+      <dt>Click · tap</dt><dd>When paving or spreading soil: work the hexagon you point at</dd>
+      <dt>F · W A S D</dt><dd>Fly; Q and E (or Space and Shift) to climb and sink</dd>
+      <dt>O</dt><dd>Go to orbit and back</dd>
+      <dt>Scroll · pinch</dt><dd>Zoom in, like binoculars</dd>
+      <dt>Space</dt><dd>Play or pause the years</dd>
+      <dt>← →</dt><dd>One year (Shift: ten)</dd>
+      <dt>[ ]</dt><dd>Hour of the day</dd>
+      <dt>1 2 3</dt><dd>Places</dd>
+      <dt>H · P</dt><dd>Hide the interface · save a photo</dd>
+    </dl>
+    <h3>Sources</h3>
+    <ul class="sources">
+      <li>P. Birch, “Terraforming Venus Quickly”, <i>JBIS</i> 44 (1991) 157–167.</li>
+      <li>NASA/JPL/USGS, Magellan global topography, 4641 m per pixel (<a href="https://astrogeology.usgs.gov/search/map/venus_magellan_global_topography_4641m">USGS Astrogeology</a>).</li>
+      <li>CO2 phase data: triple point 216.6 K and 5.18 bar; critical point 304.1 K and 73.8 bar.</li>
+      <li>Venera 13 and 14 panoramas (1982), for the platy basalt at your feet.</li>
+      <li>Soviet constructivist posters and lithographs of the 1920s, for the four inks it is printed in.</li>
+    </ul>
+    <p class="small">An experiment by <a href="https://sankala.me">San Kala</a>. No ads, nothing for sale. <a href="https://github.com/spsanps/dysonswarm/tree/main/venus">Source code</a> · <a href="/">More space interactives</a> · <a href="https://www.youtube.com/@paperrobotsfilms">Paper Robots</a></p>
+  </div>
+</div>
+
+<div id="boot" class="boot" hidden>
+  <div class="boot-inner">
+    <p class="kicker">Preparing the board</p>
+    <p id="bootText" class="boot-text">Reading the radar map</p>
+    <div class="bar"><i id="bootBar"></i></div>
+    <p id="bootFail" class="fail" hidden></p>
+  </div>
+</div>
+
+<script type="module" src="./js/boot.js"></script>
+</body>
+</html>

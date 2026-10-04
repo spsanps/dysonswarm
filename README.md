@@ -15,6 +15,7 @@ and [Paper Robots](https://www.youtube.com/@paperrobotsfilms) for films.
 | `swarm/` | Original pixel swarm: page, styles, simulation, preview image. |
 | `triton/` | A Moon That Thinks: Triton grown into a computer from 2050 to about 2090, powered by fusion, in cloisonné enamel. Page, styles, renderer and workers (`js/`), font, preview images. Notes in `_design/reviews/2026-10-triton-v2/`. |
 | `orbital-ring/` | Up to the Ring, a ride from the sea to an orbital ring: page, styles, renderer (`renderer.js`, `shaders.js`), ride logic (`ride.js`, loaded only on Enter), fonts, geography masks (`data/`), preview and still images. |
+| `venus/` | Terraforming Venus: page, styles, renderer (`js/`), Magellan terrain (`data/`), fonts, preview images. See `venus/NOTES.md`. |
 | `_archive/triton-clay/` | The rejected first Triton (clay diorama), kept as a record; not published. |
 | `og-image.png` | Original swarm share image; existing public URL preserved. |
 | `worlds/` | Alias that takes visitors to the collection homepage. |
