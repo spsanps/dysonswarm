@@ -8,8 +8,9 @@ and [Paper Robots](https://www.youtube.com/@paperrobotsfilms) for films.
 
 | Folder / file | What belongs here |
 | --- | --- |
-| `index.html` | Collection homepage. No JavaScript or renderer loads here. |
-| `home/` | Homepage styles, icon, and share image. |
+| `index.html` | Collection homepage: a trip out from the Sun, one screenprinted world. The first screen is the first place (the Swarm), then the 2050s statement, then each place with its card. Reads and works without JavaScript; no WebGL. |
+| `home/` | Homepage styles, fonts, icon, share image and `home.js` (starts the trip). |
+| `home/trip/` | The trip: the world's layout (`world.js`), the print helpers (`ink.js`, `tone.js`, `globe.js`), one module per place (`swarm.js`, `venus.js`, `earth.js`, `habitat.js`, `passage.js`, `neptune.js`, `legs.js`), the sky layer, the print worker, the runtime (`trip.js`), the Earth's land mask (`data/`) and pre-rendered stills (`stills/`). |
 | `another-sky/` | O’Neill-cylinder explorer: page, styles, renderer, preview images. Its front door, the painted window, is in `another-sky/window/`. |
 | `swarm/` | Original pixel swarm: page, styles, simulation, preview image. |
 | `triton/` | A Moon That Thinks: Triton grown into a computer from 2050 to about 2090, powered by fusion, in cloisonné enamel. Page, styles, renderer and workers (`js/`), font, preview images. Notes in `_design/reviews/2026-10-triton-v2/`. |

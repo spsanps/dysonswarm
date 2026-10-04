@@ -1,0 +1,15 @@
+[
+  {
+    "family": "Michroma",
+    "weights": [
+      400
+    ],
+    "stylesheet": "https://fonts.googleapis.com/css2?family=Michroma:wght@400",
+    "license": "https://raw.githubusercontent.com/google/fonts/main/ofl/michroma/OFL.txt",
+    "licenseFile": "michroma-OFL.txt",
+    "files": [
+      "michroma-400.woff2"
+    ],
+    "conversion": "Downloaded the official Google Fonts static TTF, subset with fontTools pyftsubset to Basic Latin plus · – — ‘ ’ “ ” → (kern, liga kept) and compressed to WOFF2. Used by the homepage for the poster lettering (home/styles.css @font-face) and by the share card (_design/social-cards/)."
+  }
+]

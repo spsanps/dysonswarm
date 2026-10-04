@@ -3,62 +3,203 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dyson Swarm — Places we could build</title>
-  <meta name="description" content="Space habitats, megastructures, and other places I want to see. Explore interactive worlds by San Kala, from an O’Neill cylinder to a swarm around the Sun.">
+  <title>Dyson Swarm · Space interactives by San Kala</title>
+  <meta name="description" content="Five places from fifty years out, past the singularity, that you can walk around in your browser: a swarm around the Sun, Venus under a sunshade, a ring around the Earth, an O’Neill cylinder and a computer on Triton. By San Kala.">
   <meta name="author" content="San Kala">
-  <meta name="theme-color" content="#f1eee3">
+  <meta name="theme-color" content="#151b32">
   <link rel="canonical" href="https://dysonswarm.com/">
   <link rel="icon" type="image/svg+xml" href="/home/images/favicon.svg">
+  <link rel="preload" href="/home/covers/fonts/michroma-400.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/home/fonts/instrument-sans.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/home/styles.css">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Dyson Swarm">
-  <meta property="og:title" content="Dyson Swarm — Places we could build">
-  <meta property="og:description" content="Space habitats, megastructures, and other places I want to see. Interactive worlds by San Kala.">
+  <meta property="og:title" content="Dyson Swarm · Space interactives by San Kala">
+  <meta property="og:description" content="Five places from fifty years out, past the singularity. Walk around in them, in your browser.">
   <meta property="og:url" content="https://dysonswarm.com/">
   <meta property="og:image" content="https://dysonswarm.com/home/images/social-preview.jpg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="Dyson Swarm: Places we could build. A view inside Another Sky, an O’Neill cylinder.">
+  <meta property="og:image:alt" content="Dyson Swarm: a screenprint of the Sun ringed by solar collectors on tilted orbits, while Mercury is quarried and its pieces stream up to join them.">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Dyson Swarm — Places we could build">
-  <meta name="twitter:description" content="Explore space habitats and megastructures. Interactive worlds by San Kala.">
+  <meta name="twitter:title" content="Dyson Swarm · Space interactives by San Kala">
+  <meta name="twitter:description" content="Five places from fifty years out, past the singularity. Walk around in them, in your browser.">
   <meta name="twitter:image" content="https://dysonswarm.com/home/images/social-preview.jpg">
-  <meta name="twitter:image:alt" content="Dyson Swarm: Places we could build, featuring Another Sky.">
+  <meta name="twitter:image:alt" content="Dyson Swarm: a screenprint of the Sun ringed by solar collectors, with Mercury being quarried.">
+  <!-- The trip runs live where it can (motion allowed, a capable browser); everywhere else, and
+       with ?still, the same page shows each place as a still print. -->
+  <script>
+    (function () {
+      var d = document.documentElement;
+      try {
+        if (window.matchMedia('(prefers-reduced-motion: no-preference)').matches && 'IntersectionObserver' in window && 'ResizeObserver' in window &&
+            !(navigator.deviceMemory && navigator.deviceMemory < 2) && !/[?&]still\b/.test(location.search)) d.classList.add('trip-live');
+      } catch (e) {}
+    })();
+  </script>
+  <script type="module" src="/home/home.js"></script>
 </head>
 <body>
-  <div class="wrap">
-    <header class="site-header">
-      <a class="wordmark" href="/" aria-label="Dyson Swarm home">
-        <svg viewBox="0 0 40 40" fill="none" aria-hidden="true"><g stroke="currentColor" stroke-width=".85"><circle cx="20" cy="20" r="17"/><ellipse cx="20" cy="20" rx="9" ry="17" transform="rotate(-30 20 20)"/><ellipse cx="20" cy="20" rx="17" ry="7" transform="rotate(-30 20 20)"/></g><circle cx="20" cy="20" r="3" fill="#914a2f"/></svg>
-        DYSON SWARM
-      </a>
-      <nav aria-label="More by San"><a href="https://sankala.me">By San Kala ↗</a><a class="films-link" href="https://www.youtube.com/@paperrobotsfilms">Paper Robots ↗</a></nav>
-    </header>
-    <main>
-      <section class="intro" aria-labelledby="page-title">
-        <div><p class="eyebrow">An ongoing collection · 02 worlds</p><h1 id="page-title">Places we<br>could <em>build.</em></h1></div>
-        <p class="intro-copy">Space habitats, megastructures, and other places I want to see.<br>Choose a world. Have a look around.</p>
-      </section>
-      <a class="featured" href="/another-sky/" aria-label="Enter Another Sky, an interactive O’Neill cylinder">
-        <img src="/another-sky/images/world-preview.jpg" alt="Lakes, trees, and cities curl overhead inside an immense cylindrical habitat." width="1600" height="900" fetchpriority="high">
-        <div class="feature-top"><span>01 / ANOTHER SKY</span><span class="habitat-label">O’NEILL CYLINDER · HABITAT 01</span></div>
-        <div class="feature-bottom"><div><h2>Another Sky</h2><p>Look up. The landscape keeps going.</p></div><span class="enter">Enter the cylinder <b aria-hidden="true">↗</b></span></div>
-      </a>
-      <div class="field-caption"><span>Walk the shore, or fly to the world overhead.</span><span>Best explored on a desktop.<br>Touch controls available.</span></div>
-      <div class="below">
-        <a class="swarm-card" href="/swarm/" aria-label="Explore the Dyson swarm visualization">
-          <div class="swarm-picture"><img src="/swarm/images/world-preview.jpg" alt="A golden Sun surrounded by thousands of tiny orbiting collectors against black space." width="1200" height="630" loading="lazy"><span>02 / AROUND THE SUN</span></div>
-          <div class="card-copy"><div><h2>The swarm</h2><p>Take Mercury apart. Put its matter into orbit around the Sun. Watch a megastructure take shape.</p></div><span class="card-arrow" aria-hidden="true">↗</span></div>
-        </a>
-        <section class="field-note" aria-labelledby="note-title">
-          <p class="eyebrow">A note from San</p><h2 id="note-title">I wanted to see<br>the world overhead.</h2>
-          <p>For a while, I kept asking image generators for the view from inside an O’Neill cylinder. Standing on the ground, looking up at more ground. They never quite got it.</p>
-          <p>Another Sky, made with Astra, lets me walk around in that idea. This is where I’m collecting it and the other space things I make.</p>
-          <p class="signature"><a href="https://sankala.me">San Kala ↗</a></p>
-        </section>
+  <header class="top">
+    <a class="mark" href="#top" aria-label="Dyson Swarm, back to the start">Dyson Swarm</a>
+    <!-- The itinerary, once the first screen has scrolled away (live trip only). -->
+    <nav class="rail" data-rail aria-label="Places on the trip">
+      <ol>
+        <li><a href="#swarm"><i aria-hidden="true"></i><span>The Swarm</span></a></li>
+        <li><a href="#venus"><i aria-hidden="true"></i><span>Venus</span></a></li>
+        <li><a href="#ring"><i aria-hidden="true"></i><span>The Orbital Ring</span></a></li>
+        <li><a href="#sky"><i aria-hidden="true"></i><span>Another Sky</span></a></li>
+        <li><a href="#triton"><i aria-hidden="true"></i><span>Triton</span></a></li>
+      </ol>
+    </nav>
+    <nav class="more" aria-label="More by San"><a href="https://sankala.me">San Kala <span aria-hidden="true">↗</span></a><a href="https://www.youtube.com/@paperrobotsfilms">Paper Robots <span aria-hidden="true">↗</span></a></nav>
+  </header>
+  <!-- How far from the Sun the trip has come (live trip only). -->
+  <p class="odo" data-odo aria-hidden="true"><b data-au>0.39</b> AU from the Sun <i>·</i> sunlight <b data-lt>3 min</b></p>
+
+  <!-- The trip: a sticky stage (home/trip/) behind the sections, its camera travelling out from the
+       Sun as you scroll. Each section holds the camera on one place while its card is up. The
+       stage opens on a pre-rendered still of the first place; without the live trip, each
+       section shows its own still. README.md, "The homepage", explains the parts. -->
+  <main class="trip" data-trip id="top">
+    <div class="stage" data-stage>
+      <picture>
+        <source media="(max-aspect-ratio: 19/20)" srcset="/home/trip/stills/swarm-portrait-640.webp 640w, /home/trip/stills/swarm-portrait-1000.webp 1000w" sizes="(min-aspect-ratio: 5/9) 100vw, 55.6vh" width="1000" height="1800">
+        <img class="stage-still" src="/home/trip/stills/swarm-landscape-1600.webp" srcset="/home/trip/stills/swarm-landscape-1600.webp 1600w, /home/trip/stills/swarm-landscape-2560.webp 2560w" sizes="(min-aspect-ratio: 8/5) 100vw, 160vh" width="1600" height="1000" fetchpriority="high" decoding="async" alt="">
+      </picture>
+      <div class="stage-scrim" aria-hidden="true"></div>
+    </div>
+
+    <!-- The first screen is the first place: the Swarm, under the collection's name. -->
+    <section class="stop stop-first" id="swarm" data-frame="swarm" style="--accent: #f6c444" aria-labelledby="title">
+      <div class="card-wrap">
+        <article class="card card-first" data-card>
+          <div class="card-text">
+            <span class="bar" aria-hidden="true"></span>
+            <h1 id="title">Dyson Swarm</h1>
+            <p class="where"><b>01</b>The Swarm <i>·</i> Mercury <i>·</i> 0.39 AU <i>·</i> sunlight 3 min</p>
+            <p class="pitch">Take Mercury apart and put its matter in orbit around the Sun.</p>
+            <p class="actions"><a class="open" href="/swarm/">Open the Swarm <span aria-hidden="true">→</span></a><span class="by">Space interactives by <a href="https://sankala.me">San Kala</a></span></p>
+          </div>
+        </article>
+        <p class="hint" aria-hidden="true"><i></i>Five places, out from the Sun</p>
       </div>
-    </main>
-    <footer class="site-footer"><p>Imagined worlds. Made to be explored.</p><nav aria-label="Related work"><a href="https://sankala.me">Essays &amp; projects</a><a href="https://www.youtube.com/@paperrobotsfilms">Paper Robots films</a><a href="https://github.com/spsanps/dysonswarm">Source</a></nav></footer>
-  </div>
+    </section>
+
+    <!-- The second beat: the camera turns from the Sun into the dark, and says when these places are. -->
+    <section class="beat" id="the-2050s" data-frame="statement" aria-labelledby="statement-title">
+      <picture class="stop-still">
+        <source media="(max-aspect-ratio: 19/20)" srcset="/home/trip/stills/statement-portrait-1000.webp" width="1000" height="1800">
+        <img src="/home/trip/stills/statement-landscape-1600.webp" width="1600" height="1000" loading="lazy" decoding="async" alt="">
+      </picture>
+      <div class="card-wrap beat-wrap">
+        <div class="statement" data-card>
+          <h2 id="statement-title">Starting in the <em>2050s</em>.</h2>
+          <p class="statement-body">Most talk about the future looks ten or twenty years ahead. I’m deliberately looking further: the 2050s and on, past the singularity, when we start building megastructures in space. Very few people think about space, AI and the singularity together. These places are where I do.</p>
+          <div class="timeline" role="img" aria-label="A timeline from now to 2080. Most talk about the future covers the next ten to twenty years; these places start in the 2050s and run on from there.">
+            <span class="tl-most"><i>Most futures</i></span>
+            <span class="tl-ours"><i>These places</i></span>
+            <span class="tl-tick" style="--at: 0"><b>Now</b></span>
+            <span class="tl-tick" style="--at: .074"><b>2030</b></span>
+            <span class="tl-tick" style="--at: .259"><b>2040</b></span>
+            <span class="tl-tick tl-big" style="--at: .444"><b>2050</b></span>
+            <span class="tl-tick" style="--at: .63"><b>2060</b></span>
+            <span class="tl-tick" style="--at: .815"><b>2070</b></span>
+            <span class="tl-tick" style="--at: 1"><b>2080</b></span>
+          </div>
+          <p class="motto">Space futurism and AI futurism, together.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="stop" id="venus" data-frame="venus" style="--accent: #e2a62f" aria-labelledby="venus-title">
+      <picture class="stop-still">
+        <source media="(max-aspect-ratio: 19/20)" srcset="/home/trip/stills/venus-portrait-1000.webp" width="1000" height="1800">
+        <img src="/home/trip/stills/venus-landscape-1600.webp" width="1600" height="1000" loading="lazy" decoding="async" alt="Venus in shadow behind a sunshade twice its width, a dark disc held in a red truss, with sunlight piling up against it and streaming past its rim.">
+      </picture>
+      <div class="card-wrap">
+        <article class="card" data-card>
+          <span class="poster"><img src="/home/covers/stills/terraforming-venus-360.webp" srcset="/home/covers/stills/terraforming-venus-360.webp 360w, /home/covers/stills/terraforming-venus.webp 720w" sizes="(max-width: 619px) 92px, 168px" width="360" height="540" loading="lazy" decoding="async" alt="Poster for Terraforming Venus: a constructivist lithograph in red, black and gold of a trussed sunshade eclipsing the sun over the frozen curve of Venus."></span>
+          <div class="card-text">
+            <p class="where"><b>02</b>Venus <i>·</i> 0.72 AU <i>·</i> sunlight 6 min</p>
+            <h2 id="venus-title">Terraforming Venus</h2>
+            <p class="pitch">Shade Venus until its air snows out, pave over the ice, then lay soil on top.</p>
+            <span class="open soon">Arriving soon</span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="stop" id="ring" data-frame="ring" style="--accent: #e3346b" aria-labelledby="ring-title">
+      <picture class="stop-still">
+        <source media="(max-aspect-ratio: 19/20)" srcset="/home/trip/stills/ring-portrait-1000.webp" width="1000" height="1800">
+        <img src="/home/trip/stills/ring-landscape-1600.webp" width="1600" height="1000" loading="lazy" decoding="async" alt="The Earth over the Indian Ocean, half in night with its cities lit, circled by a thin bright ring 300 kilometres up, with the Moon beyond.">
+      </picture>
+      <div class="card-wrap">
+        <article class="card" data-card>
+          <span class="poster"><img src="/home/covers/stills/orbital-ring-360.webp" srcset="/home/covers/stills/orbital-ring-360.webp 360w, /home/covers/stills/orbital-ring.webp 720w" sizes="(max-width: 619px) 92px, 168px" width="360" height="540" loading="lazy" decoding="async" alt="Poster for The Orbital Ring: an op-art screenprint of an elevator car climbing a thread of cable from the equator to a ring arching across the sky."></span>
+          <div class="card-text">
+            <p class="where"><b>03</b>Earth <i>·</i> 1 AU <i>·</i> sunlight 8 min</p>
+            <h2 id="ring-title">The Orbital Ring</h2>
+            <p class="pitch">Ride a cable from the sea up to a ring 300 km above the Earth.</p>
+            <span class="open soon">Arriving soon</span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="stop" id="sky" data-frame="sky" style="--accent: #5f9f92" aria-labelledby="sky-title">
+      <picture class="stop-still">
+        <source media="(max-aspect-ratio: 19/20)" srcset="/home/trip/stills/sky-portrait-1000.webp" width="1000" height="1800">
+        <img src="/home/trip/stills/sky-landscape-1600.webp" width="1600" height="1000" loading="lazy" decoding="async" alt="An O’Neill cylinder in space, cut away along its side to show lakes, fields and clouds on the land inside, its glazed end facing the Sun.">
+      </picture>
+      <div class="card-wrap">
+        <article class="card" data-card>
+          <a class="poster" href="/another-sky/" tabindex="-1"><img src="/home/covers/stills/another-sky-360.webp" srcset="/home/covers/stills/another-sky-360.webp 360w, /home/covers/stills/another-sky.webp 720w" sizes="(max-width: 619px) 92px, 168px" width="360" height="540" loading="lazy" decoding="async" alt="Poster for Another Sky: an art-deco travel poster looking down the inside of an O’Neill cylinder, fields and windows curving toward a far sun."></a>
+          <div class="card-text">
+            <p class="where"><b>04</b>Near Earth <i>·</i> 1 AU <i>·</i> sunlight 8 min</p>
+            <h2 id="sky-title"><a href="/another-sky/">Another Sky</a></h2>
+            <p class="pitch">Walk the shore inside an O’Neill cylinder, or fly up to the land overhead.</p>
+            <a class="open" href="/another-sky/">Open Another Sky <span aria-hidden="true">→</span></a>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="passage" aria-label="On the way out">
+      <p>Out past Mars, the asteroid belt, Jupiter, Saturn and Uranus. Sunlight takes four hours to get to Neptune.</p>
+    </section>
+
+    <section class="stop" id="triton" data-frame="triton" style="--accent: #f0c35a" aria-labelledby="triton-title">
+      <picture class="stop-still">
+        <source media="(max-aspect-ratio: 19/20)" srcset="/home/trip/stills/triton-portrait-1000.webp" width="1000" height="1800">
+        <img src="/home/trip/stills/triton-landscape-1600.webp" width="1600" height="1000" loading="lazy" decoding="async" alt="Neptune, banded in blues with its faint rings, and its moon Triton in front, drawn as cloisonné enamel in gold wire, its night side full of lit halls and the whole moon glowing.">
+      </picture>
+      <div class="card-wrap">
+        <article class="card" data-card>
+          <a class="poster" href="/triton/" tabindex="-1"><img src="/home/covers/stills/triton-cluster-360.webp" srcset="/home/covers/stills/triton-cluster-360.webp 360w, /home/covers/stills/triton-cluster.webp 720w" sizes="(max-width: 619px) 92px, 168px" width="360" height="540" loading="lazy" decoding="async" alt="Poster for Triton, compute at 38 kelvin: a cloisonné enamel travel poster of computer halls on Triton’s pink ice under a huge crescent Neptune."></a>
+          <div class="card-text">
+            <p class="where"><b>05</b>Triton <i>·</i> Neptune <i>·</i> 30 AU <i>·</i> sunlight 4 h</p>
+            <h2 id="triton-title"><a href="/triton/">Triton</a></h2>
+            <p class="pitch">A moon grown into a computer, from 2050 to 2090, powered by fusion.</p>
+            <a class="open" href="/triton/">Open Triton <span aria-hidden="true">→</span></a>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="outro" data-frame="outro" aria-labelledby="end-title">
+      <div class="outro-in">
+        <h2 class="label" id="end-title"><span class="bar" aria-hidden="true"></span>End of the line</h2>
+        <p class="end-line">Five places, from the Sun out to Neptune.</p>
+        <p class="end-back"><a href="#top">Back to the Sun <span aria-hidden="true">↑</span></a></p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <p>Space interactives by <a href="https://sankala.me">San Kala</a>. Drawn in code with AI tools.</p>
+    <nav aria-label="Related"><a href="https://sankala.me">sankala.me</a><a href="https://www.youtube.com/@paperrobotsfilms">Paper Robots</a><a href="https://github.com/spsanps/dysonswarm">Source</a></nav>
+  </footer>
 </body>
 </html>
